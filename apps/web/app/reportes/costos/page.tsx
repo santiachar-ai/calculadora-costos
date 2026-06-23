@@ -1,9 +1,9 @@
-import { CostCalculator } from "../../../components/costos/cost-calculator";
+import { CostCalculatorOnline } from "../../../components/costos/cost-calculator-online";
 
 export default function CostosPage() {
   return (
     <div className="page-shell">
-      <CostCalculator />
+      <CostCalculatorOnline />
     </div>
   );
 }
