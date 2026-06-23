@@ -1,0 +1,422 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum ProductType {
+  RAW_MATERIAL
+  FINISHED_GOOD
+  MERCHANDISE
+  SERVICE
+}
+
+enum DocumentStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  PARTIALLY_DELIVERED
+  DELIVERED
+  CANCELLED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  CONFIRMED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum ProductionOrderStatus {
+  DRAFT
+  RELEASED
+  IN_PROGRESS
+  CLOSED
+  CANCELLED
+}
+
+enum StockDirection {
+  IN
+  OUT
+}
+
+enum StockMovementType {
+  PURCHASE_RECEIPT
+  DELIVERY_NOTE
+  PRODUCTION_CONSUMPTION
+  PRODUCTION_OUTPUT
+  ADJUSTMENT
+  TRANSFER
+  REVERSAL
+}
+
+enum AuditEventType {
+  CREATED
+  UPDATED
+  CONFIRMED
+  CANCELLED
+  STOCK_APPLIED
+}
+
+model User {
+  id                String         @id @default(cuid())
+  name              String
+  email             String         @unique
+  passwordHash      String
+  isActive          Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  salesOrders       SalesOrder[]
+  confirmedRemitos  DeliveryNote[] @relation("DeliveryNoteConfirmedBy")
+  stockMovements    StockMovement[]
+  auditEvents       AuditEvent[]
+}
+
+model Customer {
+  id           String         @id @default(cuid())
+  code         String         @unique
+  businessName String
+  taxId        String?
+  email        String?
+  phone        String?
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  salesOrders  SalesOrder[]
+  deliveryNotes DeliveryNote[]
+  invoices     Invoice[]
+}
+
+model Supplier {
+  id             String            @id @default(cuid())
+  code           String            @unique
+  businessName   String
+  taxId          String?
+  email          String?
+  phone          String?
+  isActive       Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  purchaseOrders PurchaseOrder[]
+  purchaseReceipts PurchaseReceipt[]
+}
+
+model UnitOfMeasure {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  products   Product[]
+}
+
+model Warehouse {
+  id                String                   @id @default(cuid())
+  code              String                   @unique
+  name              String
+  type              String?
+  isActive          Boolean                  @default(true)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  stockBalances     StockBalance[]
+  deliveryAllocations DeliveryNoteAllocation[]
+  purchaseReceipts  PurchaseReceipt[]
+  stockMovements    StockMovement[]
+}
+
+model Product {
+  id                  String                      @id @default(cuid())
+  sku                 String                      @unique
+  name                String
+  productType         ProductType
+  tracksStock         Boolean                     @default(true)
+  isActive            Boolean                     @default(true)
+  unitOfMeasureId     String
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+  unitOfMeasure       UnitOfMeasure               @relation(fields: [unitOfMeasureId], references: [id])
+  salesOrderItems     SalesOrderItem[]
+  deliveryNoteItems   DeliveryNoteItem[]
+  purchaseOrderItems  PurchaseOrderItem[]
+  purchaseReceiptItems PurchaseReceiptItem[]
+  stockBalances       StockBalance[]
+  stockMovements      StockMovement[]
+  productionFormulas  ProductionFormula[]
+  formulaInputs       ProductionFormulaItem[]     @relation("FormulaInputProduct")
+  productionOrders    ProductionOrder[]
+  productionConsumptions ProductionOrderConsumption[] @relation("ConsumptionProduct")
+  productionOutputs   ProductionOrderOutput[]     @relation("OutputProduct")
+}
+
+model SalesOrder {
+  id           String             @id @default(cuid())
+  number       String             @unique
+  customerId   String
+  status       SalesOrderStatus   @default(DRAFT)
+  orderDate    DateTime
+  notes        String?
+  createdById  String
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  customer     Customer           @relation(fields: [customerId], references: [id])
+  createdBy    User               @relation(fields: [createdById], references: [id])
+  items        SalesOrderItem[]
+  deliveryNotes DeliveryNote[]
+}
+
+model SalesOrderItem {
+  id           String      @id @default(cuid())
+  salesOrderId String
+  productId    String
+  quantity     Decimal
+  unitPrice    Decimal
+  createdAt    DateTime    @default(now())
+  salesOrder   SalesOrder  @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product      Product     @relation(fields: [productId], references: [id])
+}
+
+model DeliveryNote {
+  id             String                @id @default(cuid())
+  number         String                @unique
+  customerId     String
+  salesOrderId   String?
+  status         DocumentStatus        @default(DRAFT)
+  deliveryDate   DateTime
+  confirmedAt    DateTime?
+  confirmedById  String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  customer       Customer              @relation(fields: [customerId], references: [id])
+  salesOrder     SalesOrder?           @relation(fields: [salesOrderId], references: [id])
+  confirmedBy    User?                 @relation("DeliveryNoteConfirmedBy", fields: [confirmedById], references: [id])
+  items          DeliveryNoteItem[]
+  invoices       Invoice[]
+  auditEvents    AuditEvent[]
+}
+
+model DeliveryNoteItem {
+  id               String                   @id @default(cuid())
+  deliveryNoteId   String
+  productId        String
+  quantity         Decimal
+  createdAt        DateTime                 @default(now())
+  deliveryNote     DeliveryNote             @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  product          Product                  @relation(fields: [productId], references: [id])
+  allocations      DeliveryNoteAllocation[]
+}
+
+model DeliveryNoteAllocation {
+  id                 String          @id @default(cuid())
+  deliveryNoteItemId String
+  warehouseId        String
+  quantity           Decimal
+  stockMovementId    String?         @unique
+  createdAt          DateTime        @default(now())
+  deliveryNoteItem   DeliveryNoteItem @relation(fields: [deliveryNoteItemId], references: [id], onDelete: Cascade)
+  warehouse          Warehouse       @relation(fields: [warehouseId], references: [id])
+  stockMovement      StockMovement?  @relation(fields: [stockMovementId], references: [id])
+}
+
+model Invoice {
+  id                    String          @id @default(cuid())
+  number                String          @unique
+  customerId            String
+  deliveryNoteId        String?
+  status                DocumentStatus  @default(DRAFT)
+  invoiceDate           DateTime
+  totalAmount           Decimal
+  fiscalStatus          String?
+  arcaAuthorizationCode String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  customer              Customer        @relation(fields: [customerId], references: [id])
+  deliveryNote          DeliveryNote?   @relation(fields: [deliveryNoteId], references: [id])
+}
+
+model PurchaseOrder {
+  id           String               @id @default(cuid())
+  number       String               @unique
+  supplierId   String
+  status       PurchaseOrderStatus  @default(DRAFT)
+  orderDate    DateTime
+  expectedDate DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  supplier     Supplier             @relation(fields: [supplierId], references: [id])
+  items        PurchaseOrderItem[]
+  receipts     PurchaseReceipt[]
+}
+
+model PurchaseOrderItem {
+  id              String         @id @default(cuid())
+  purchaseOrderId String
+  productId       String
+  quantity        Decimal
+  unitCost        Decimal
+  createdAt       DateTime       @default(now())
+  purchaseOrder   PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product         Product        @relation(fields: [productId], references: [id])
+}
+
+model PurchaseReceipt {
+  id              String          @id @default(cuid())
+  number          String          @unique
+  supplierId      String
+  purchaseOrderId String?
+  warehouseId     String
+  status          DocumentStatus  @default(DRAFT)
+  receiptDate     DateTime
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  supplier        Supplier        @relation(fields: [supplierId], references: [id])
+  purchaseOrder   PurchaseOrder?  @relation(fields: [purchaseOrderId], references: [id])
+  warehouse       Warehouse       @relation(fields: [warehouseId], references: [id])
+  items           PurchaseReceiptItem[]
+}
+
+model PurchaseReceiptItem {
+  id                String          @id @default(cuid())
+  purchaseReceiptId String
+  productId         String
+  quantity          Decimal
+  unitCost          Decimal
+  createdAt         DateTime        @default(now())
+  purchaseReceipt   PurchaseReceipt @relation(fields: [purchaseReceiptId], references: [id], onDelete: Cascade)
+  product           Product         @relation(fields: [productId], references: [id])
+}
+
+model ProductionFormula {
+  id         String                  @id @default(cuid())
+  productId  String
+  version    Int
+  isActive   Boolean                 @default(true)
+  validFrom  DateTime
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+  product    Product                 @relation(fields: [productId], references: [id])
+  items      ProductionFormulaItem[]
+  productionOrders ProductionOrder[]
+
+  @@unique([productId, version])
+}
+
+model ProductionFormulaItem {
+  id                  String             @id @default(cuid())
+  productionFormulaId String
+  inputProductId      String
+  quantity            Decimal
+  warehouseId         String?
+  createdAt           DateTime           @default(now())
+  productionFormula   ProductionFormula  @relation(fields: [productionFormulaId], references: [id], onDelete: Cascade)
+  inputProduct        Product            @relation("FormulaInputProduct", fields: [inputProductId], references: [id])
+}
+
+model ProductionOrder {
+  id               String                 @id @default(cuid())
+  number           String                 @unique
+  productId        String
+  formulaId        String
+  plannedQuantity  Decimal
+  producedQuantity Decimal                @default(0)
+  status           ProductionOrderStatus  @default(DRAFT)
+  plannedDate      DateTime
+  closedAt         DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  product          Product                @relation(fields: [productId], references: [id])
+  formula          ProductionFormula      @relation(fields: [formulaId], references: [id])
+  consumptions     ProductionOrderConsumption[]
+  outputs          ProductionOrderOutput[]
+}
+
+model ProductionOrderConsumption {
+  id                String           @id @default(cuid())
+  productionOrderId String
+  inputProductId    String
+  warehouseId       String?
+  plannedQuantity   Decimal
+  actualQuantity    Decimal
+  stockMovementId   String?          @unique
+  createdAt         DateTime         @default(now())
+  productionOrder   ProductionOrder  @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  inputProduct      Product          @relation("ConsumptionProduct", fields: [inputProductId], references: [id])
+  stockMovement     StockMovement?   @relation(fields: [stockMovementId], references: [id])
+}
+
+model ProductionOrderOutput {
+  id                String           @id @default(cuid())
+  productionOrderId String
+  outputProductId   String
+  warehouseId       String
+  quantity          Decimal
+  stockMovementId   String?          @unique
+  createdAt         DateTime         @default(now())
+  productionOrder   ProductionOrder  @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  outputProduct     Product          @relation("OutputProduct", fields: [outputProductId], references: [id])
+  stockMovement     StockMovement?   @relation(fields: [stockMovementId], references: [id])
+}
+
+model StockMovement {
+  id                          String                     @id @default(cuid())
+  movementType                StockMovementType
+  direction                   StockDirection
+  warehouseId                 String
+  productId                   String
+  quantity                    Decimal
+  referenceModule             String
+  referenceDocument           String
+  referenceId                 String
+  movementDate                DateTime
+  createdById                 String
+  createdAt                   DateTime                   @default(now())
+  warehouse                   Warehouse                  @relation(fields: [warehouseId], references: [id])
+  product                     Product                    @relation(fields: [productId], references: [id])
+  createdBy                   User                       @relation(fields: [createdById], references: [id])
+  deliveryAllocation          DeliveryNoteAllocation?
+  productionConsumption       ProductionOrderConsumption?
+  productionOutput            ProductionOrderOutput?
+}
+
+model StockBalance {
+  id               String    @id @default(cuid())
+  warehouseId      String
+  productId        String
+  quantityOnHand   Decimal   @default(0)
+  quantityReserved Decimal   @default(0)
+  updatedAt        DateTime  @updatedAt
+  warehouse        Warehouse @relation(fields: [warehouseId], references: [id])
+  product          Product   @relation(fields: [productId], references: [id])
+
+  @@unique([warehouseId, productId])
+}
+
+model AuditEvent {
+  id            String         @id @default(cuid())
+  module        String
+  entityName    String
+  entityId      String
+  eventType     AuditEventType
+  eventDate     DateTime       @default(now())
+  userId        String
+  payloadJson   String
+  deliveryNoteId String?
+  user          User           @relation(fields: [userId], references: [id])
+  deliveryNote  DeliveryNote?  @relation(fields: [deliveryNoteId], references: [id])
+}
+
+model CostConfiguration {
+  id                String   @id @default(cuid())
+  key               String   @unique
+  paramsJson        String
+  purchaseRulesJson String
+  salesRulesJson    String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

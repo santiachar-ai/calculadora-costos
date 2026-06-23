@@ -1,0 +1,16 @@
+{
+  "name": "erp-propio",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace api",
+    "build:web": "npm run build --workspace web",
+    "dev": "npm run dev --workspace api",
+    "dev:web": "npm run dev --workspace web",
+    "prisma:generate": "npm run prisma:generate --workspace api",
+    "prisma:migrate:dev": "npm run prisma:migrate:dev --workspace api"
+  }
+}

@@ -1,0 +1,3 @@
+# This file is automatically maintained by Prisma.
+# It locks the provider used when the first migration was created.
+provider = "sqlite"
