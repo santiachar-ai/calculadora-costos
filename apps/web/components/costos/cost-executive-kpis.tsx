@@ -33,8 +33,61 @@ type Lever = {
   control: "alta" | "media" | "baja";
 };
 
+type ExactLever = {
+  label: string;
+  value: number;
+  share: number;
+  reductionImpact: number;
+  controllability: "alta" | "media" | "baja";
+  affectedProducts: number;
+};
+
+type ExactRisk = {
+  producto: string;
+  margenGestionLitro: number;
+  costoGestionLitro: number;
+  precioLitro: number;
+  litros: number;
+  pressure: number;
+};
+
+type ExactModelSnapshot = {
+  files?: {
+    purchases?: string;
+    sales?: string;
+  };
+  kpis: {
+    resultadoNetoLitro: number;
+    facturacionAnalizada: number;
+    facturacionTotal: number;
+    litrosTotales: number;
+  };
+  insights: {
+    topGlobalDriver: ExactLever | null;
+    bestReductionLever: ExactLever | null;
+    riskiestProduct: ExactRisk | null;
+    totalReduciblePerLiter: number;
+    topLevers: ExactLever[];
+    risks: ExactRisk[];
+  };
+};
+
+type FallbackProduct = {
+  producto: string;
+  litros: number;
+  facturacion: number;
+  precioLitro: number;
+  costoLitro: number;
+  margenLitro: number;
+  pressure: number;
+};
+
+type DisplayLever = ExactLever | Lever;
+type DisplayProduct = ExactRisk | FallbackProduct;
+
 const PURCHASE_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-compras-v1";
 const SALES_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-ventas-v1";
+const COST_MODEL_SNAPSHOT_STORAGE_KEY = "erp-costos-modelo-calculado-v1";
 
 const PRODUCT_RULES = [
   { match: "OPTI-BLUE", producto: "OptiBlue", factor: 1 },
@@ -110,6 +163,16 @@ function parseStoredWorkbook(payload: string | null): StoredWorkbook | null {
       cellDates: true,
     }),
   };
+}
+
+function parseExactSnapshot(payload: string | null): ExactModelSnapshot | null {
+  if (!payload) return null;
+  try {
+    const parsed = JSON.parse(payload) as ExactModelSnapshot;
+    return parsed?.insights && parsed?.kpis ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function sheetRows(workbook: XLSX.WorkBook, sheetName: string) {
@@ -356,8 +419,34 @@ function buildKpis(sales: ParsedSale[], purchases: ParsedPurchase[]) {
   };
 }
 
+function leverName(lever: DisplayLever | null | undefined) {
+  if (!lever) return "";
+  return "label" in lever ? lever.label : lever.familia;
+}
+
+function leverTotal(lever: DisplayLever) {
+  return "value" in lever ? lever.value : lever.total;
+}
+
+function leverImpact(lever: DisplayLever) {
+  return "reductionImpact" in lever ? lever.reductionImpact : lever.impact;
+}
+
+function leverControl(lever: DisplayLever) {
+  return "controllability" in lever ? lever.controllability : lever.control;
+}
+
+function productMargin(product: DisplayProduct) {
+  return "margenGestionLitro" in product ? product.margenGestionLitro : product.margenLitro;
+}
+
+function productCost(product: DisplayProduct) {
+  return "costoGestionLitro" in product ? product.costoGestionLitro : product.costoLitro;
+}
+
 export function CostExecutiveKpis() {
   const [snapshot, setSnapshot] = useState(0);
+  const [exactSnapshot, setExactSnapshot] = useState<ExactModelSnapshot | null>(null);
   const [files, setFiles] = useState<{ purchases: StoredWorkbook | null; sales: StoredWorkbook | null }>({
     purchases: null,
     sales: null,
@@ -365,6 +454,7 @@ export function CostExecutiveKpis() {
 
   useEffect(() => {
     const load = () => {
+      setExactSnapshot(parseExactSnapshot(window.localStorage.getItem(COST_MODEL_SNAPSHOT_STORAGE_KEY)));
       setFiles({
         purchases: parseStoredWorkbook(window.localStorage.getItem(PURCHASE_FILE_STORAGE_KEY)),
         sales: parseStoredWorkbook(window.localStorage.getItem(SALES_FILE_STORAGE_KEY)),
@@ -385,14 +475,54 @@ export function CostExecutiveKpis() {
   const data = useMemo(() => {
     const sales = parseSales(files.sales?.workbook ?? null);
     const purchases = parsePurchases(files.purchases?.workbook ?? null);
-    return {
-      sales,
-      purchases,
-      kpis: buildKpis(sales, purchases),
-    };
-  }, [files, snapshot]);
+    const fallback = buildKpis(sales, purchases);
+    if (exactSnapshot) {
+      return {
+        mode: "exact" as const,
+        files: {
+          sales: exactSnapshot.files?.sales || files.sales?.fileName || "",
+          purchases: exactSnapshot.files?.purchases || files.purchases?.fileName || "",
+        },
+        kpis: {
+          topCost: exactSnapshot.insights.topGlobalDriver,
+          bestLever: exactSnapshot.insights.bestReductionLever,
+          riskiestProduct: exactSnapshot.insights.riskiestProduct,
+          margenPromedio: exactSnapshot.kpis.resultadoNetoLitro,
+          precioPromedio: exactSnapshot.kpis.litrosTotales
+            ? exactSnapshot.kpis.facturacionAnalizada / exactSnapshot.kpis.litrosTotales
+            : 0,
+          costoPromedio: exactSnapshot.kpis.litrosTotales
+            ? exactSnapshot.kpis.facturacionAnalizada / exactSnapshot.kpis.litrosTotales -
+              exactSnapshot.kpis.resultadoNetoLitro
+            : 0,
+          levers: exactSnapshot.insights.topLevers,
+          products: exactSnapshot.insights.risks,
+          totalReduciblePerLiter: exactSnapshot.insights.totalReduciblePerLiter,
+        },
+      };
+    }
 
-  if (!files.sales && !files.purchases) return null;
+    return {
+      mode: "fallback" as const,
+      files: {
+        sales: files.sales?.fileName || "",
+        purchases: files.purchases?.fileName || "",
+      },
+      kpis: {
+        topCost: fallback.topCost,
+        bestLever: fallback.bestLever,
+        riskiestProduct: fallback.riskiestProduct,
+        margenPromedio: fallback.margenPromedio,
+        precioPromedio: fallback.precioPromedio,
+        costoPromedio: fallback.costoPromedio,
+        levers: fallback.levers,
+        products: fallback.products,
+        totalReduciblePerLiter: 0,
+      },
+    };
+  }, [exactSnapshot, files, snapshot]);
+
+  if (!exactSnapshot && !files.sales && !files.purchases) return null;
 
   return (
     <section className={styles.executiveKpis}>
@@ -401,28 +531,29 @@ export function CostExecutiveKpis() {
           <p className={styles.eyebrow}>Indicadores de costos</p>
           <h2>Lectura ejecutiva</h2>
           <p>
-            Resumen automatico basado en los archivos cargados. Usa compras para detectar palancas de costo y ventas para
-            ponderar el impacto por litro.
+            {data.mode === "exact"
+              ? "Resumen conectado al modelo real de la calculadora: mismas reglas, parametros e imputaciones."
+              : "Resumen automatico basado en los archivos cargados mientras la calculadora termina de recalcular."}
           </p>
         </div>
         <div className={styles.fileSummary}>
-          {files.sales ? <span>{files.sales.fileName}</span> : null}
-          {files.purchases ? <span>{files.purchases.fileName}</span> : null}
+          {data.files.sales ? <span>{data.files.sales}</span> : null}
+          {data.files.purchases ? <span>{data.files.purchases}</span> : null}
         </div>
       </div>
 
       <div className={styles.insightGrid}>
         <article className={styles.insightCard}>
           <span>Costo dominante</span>
-          <strong>{data.kpis.topCost?.familia ?? "Sin compras"}</strong>
-          <p>{data.kpis.topCost ? `${pct(data.kpis.topCost.share)} del costo cargado.` : "Carga compras para verlo."}</p>
+          <strong>{leverName(data.kpis.topCost) || "Sin compras"}</strong>
+          <p>{data.kpis.topCost ? `${pct(data.kpis.topCost.share)} del costo calculado.` : "Carga compras para verlo."}</p>
         </article>
         <article className={styles.insightCard}>
           <span>Palanca reducible</span>
-          <strong>{data.kpis.bestLever?.familia ?? "Sin palanca"}</strong>
+          <strong>{leverName(data.kpis.bestLever) || "Sin palanca"}</strong>
           <p>
             {data.kpis.bestLever
-              ? `Reducir 10% impacta aprox. ${money(data.kpis.bestLever.impact)}.`
+              ? `Reducir 10% impacta aprox. ${money(leverImpact(data.kpis.bestLever))}.`
               : "No hay costos controlables detectados."}
           </p>
         </article>
@@ -441,7 +572,7 @@ export function CostExecutiveKpis() {
             {money(data.kpis.margenPromedio)}
           </strong>
           <p>
-            Precio {money(data.kpis.precioPromedio)} / L vs costo asignado {money(data.kpis.costoPromedio)} / L.
+            Precio {money(data.kpis.precioPromedio)} / L vs costo calculado {money(data.kpis.costoPromedio)} / L.
           </p>
         </article>
       </div>
@@ -454,14 +585,14 @@ export function CostExecutiveKpis() {
           </div>
           <div className={styles.leverList}>
             {data.kpis.levers.slice(0, 6).map((lever) => (
-              <div className={styles.leverRow} key={lever.familia}>
+              <div className={styles.leverRow} key={leverName(lever)}>
                 <div>
-                  <strong>{lever.familia}</strong>
-                  <span>Control {lever.control}</span>
+                  <strong>{leverName(lever)}</strong>
+                  <span>Control {leverControl(lever)}</span>
                 </div>
                 <div>
-                  <strong>{money(lever.total)}</strong>
-                  <span>{pct(lever.share)} - impacto 10% {money(lever.impact)}</span>
+                  <strong>{money(leverTotal(lever))}</strong>
+                  <span>{pct(lever.share)} - impacto 10% {money(leverImpact(lever))}</span>
                 </div>
               </div>
             ))}
@@ -478,11 +609,13 @@ export function CostExecutiveKpis() {
               <div className={styles.leverRow} key={product.producto}>
                 <div>
                   <strong>{product.producto}</strong>
-                  <span>{number(product.litros)} L - precio {money(product.precioLitro)} / L</span>
+                  <span>
+                    {number(product.litros)} L - costo {money(productCost(product))} / L
+                  </span>
                 </div>
                 <div>
-                  <strong className={product.margenLitro < 0 ? styles.negative : undefined}>
-                    {money(product.margenLitro)}
+                  <strong className={productMargin(product) < 0 ? styles.negative : undefined}>
+                    {money(productMargin(product))}
                   </strong>
                   <span>{pct(product.pressure)} presion</span>
                 </div>
