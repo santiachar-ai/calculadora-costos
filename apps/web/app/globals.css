@@ -871,6 +871,38 @@ th {
   gap: 18px;
 }
 
+.fazon-card {
+  display: grid;
+  gap: 18px;
+}
+
+.fazon-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fazon-summary div {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(248, 252, 255, 0.78);
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.fazon-summary span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.fazon-summary strong {
+  font-size: 1.05rem;
+}
+
 .executive-kpis {
   display: grid;
   gap: 18px;
@@ -1500,6 +1532,7 @@ th {
   .lever-board,
   .driver-grid,
   .driver-metrics,
+  .fazon-summary,
   .master-add-row.purchase,
   .master-add-row.sales {
     grid-template-columns: 1fr;

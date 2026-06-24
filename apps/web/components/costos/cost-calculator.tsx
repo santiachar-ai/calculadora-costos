@@ -41,6 +41,9 @@ type CostParams = {
   litrosPorIbc: number;
   pctCombustibleOptiblue: number;
   costoVariableFazonLitro: number;
+  dolarDivisaBna: number;
+  precioFazon325UsdTon: number;
+  precioFazonIndustrialUsdTon: number;
   iibbPct: number;
   comisionPct: number;
   sueldosAdmin: number;
@@ -82,6 +85,19 @@ type ProductResult = {
   costoLitro: number;
   margenLitro: number;
   margenTotal: number;
+};
+
+type FazonResult = {
+  producto: string;
+  litros: number;
+  densidad: number;
+  toneladas: number;
+  precioUsdTon: number;
+  tipoCambio: number;
+  valorTeorico: number;
+  facturacion: number;
+  diferencia: number;
+  comision: number;
 };
 
 type CostDriver = {
@@ -136,6 +152,14 @@ type CostModel = {
   purchases: PurchaseRow[];
   sales: SaleRow[];
   products: ProductResult[];
+  fazon: {
+    rows: FazonResult[];
+    totalToneladas: number;
+    totalTeorico: number;
+    totalFacturado: number;
+    totalDiferencia: number;
+    totalComisiones: number;
+  };
   costDrivers: ProductCostDrivers[];
   insights: CostInsights;
   kpis: {
@@ -181,6 +205,7 @@ const PURCHASE_TYPES = [
   "MP_FLETE",
   "FLETE",
   "GASTO_COMERCIAL",
+  "COMISION_IF",
   "COMPENSACION_IF",
   "LOGISTICA_COMB",
   "LOGISTICA",
@@ -228,10 +253,15 @@ const PURCHASE_TYPE_DETAILS: Record<
     description: "Gastos de venta, publicidad, comisiones o acciones comerciales.",
     impact: "suma costo",
   },
+  COMISION_IF: {
+    label: "Comision IF",
+    description: "Factura recibida por comisiones de IF, emitida fiscalmente como asesoramiento comercial.",
+    impact: "suma costo",
+  },
   COMPENSACION_IF: {
-    label: "Compensacion IF",
-    description: "Factura recibida por asesoramiento comercial que compensa servicios de fazon IF.",
-    impact: "resta ingreso",
+    label: "Ajuste IF",
+    description: "Categoria historica para ajustes vinculados a IF. Revisar si corresponde reclasificar a comision IF.",
+    impact: "revisar",
   },
   LOGISTICA_COMB: {
     label: "Combustible logistico",
@@ -346,7 +376,7 @@ const PURCHASE_PRODUCTS = [
   "Control",
   "Envases",
   "Financiero",
-  "IF Compensacion",
+  "IF Fazon",
 ];
 
 const SALES_TYPES = ["PRODUCTO", "SERVICIO", "ACCESORIO", "OTROS"];
@@ -384,6 +414,9 @@ const DEFAULT_PARAMS: CostParams = {
   litrosPorIbc: 1000,
   pctCombustibleOptiblue: 0.8,
   costoVariableFazonLitro: 0,
+  dolarDivisaBna: 0,
+  precioFazon325UsdTon: 0,
+  precioFazonIndustrialUsdTon: 0,
   iibbPct: 0,
   comisionPct: 0,
   sueldosAdmin: 10000000,
@@ -441,7 +474,7 @@ const MAY_2026_PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Ajuste por redondeo", proveedor: "Compañía de Negocios Agropecuarios CNA S.A.", tipo: "NO_COSTO", producto: "Empresa" },
   { articulo: "Diferencia de Cambio", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
   { articulo: "Solución de urea al 32.5% - LTS", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "MP", producto: "OptiBlue" },
-  { articulo: "ASESORAMIENTO COMERCIAL", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "COMPENSACION_IF", producto: "IF Compensacion" },
+  { articulo: "ASESORAMIENTO COMERCIAL", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "COMISION_IF", producto: "IF Fazon" },
   { articulo: "Construcción nave industrial 20x48", proveedor: "Construcciones Civil-Mecánica Arrecifes SRL", tipo: "INVERSION", producto: "Planta" },
   { articulo: "Combustibles varios", proveedor: "Operadora de Estaciones de Servicio S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
   { articulo: "Combustibles varios", proveedor: "Casares Combustibles S.R.L", tipo: "ADMIN VARIOS", producto: "Administracion" },
@@ -1115,6 +1148,65 @@ function buildCostModel(
     current.facturacion += row.total;
     priceByProduct.set(row.producto, current);
   });
+  const salesTotal = (producto: string) =>
+    sum(sales, (row) => row.producto === producto && !row.revisar, (row) => row.total);
+  const comisionIfTotal =
+    purchaseTotal("COMISION_IF", "IF Fazon") +
+    purchaseTotal("COMPENSACION_IF", "IF Fazon") +
+    purchaseTotal("COMPENSACION_IF", "IF Compensacion");
+  const fazonRows: FazonResult[] = [
+    {
+      producto: "IF_FAZON_325",
+      litros: params.litrosFazon325,
+      densidad: params.densidadOptiblue,
+      toneladas: (params.litrosFazon325 * params.densidadOptiblue) / 1000,
+      precioUsdTon: params.precioFazon325UsdTon,
+      tipoCambio: params.dolarDivisaBna,
+      valorTeorico:
+        ((params.litrosFazon325 * params.densidadOptiblue) / 1000) *
+        params.precioFazon325UsdTon *
+        params.dolarDivisaBna,
+      facturacion: salesTotal("IF_FAZON_325"),
+      diferencia:
+        salesTotal("IF_FAZON_325") -
+        ((params.litrosFazon325 * params.densidadOptiblue) / 1000) *
+          params.precioFazon325UsdTon *
+          params.dolarDivisaBna,
+      comision: 0,
+    },
+    {
+      producto: "IF_FAZON_IND",
+      litros: params.litrosFazonIndustrial,
+      densidad: params.densidadIndustrial,
+      toneladas: (params.litrosFazonIndustrial * params.densidadIndustrial) / 1000,
+      precioUsdTon: params.precioFazonIndustrialUsdTon,
+      tipoCambio: params.dolarDivisaBna,
+      valorTeorico:
+        ((params.litrosFazonIndustrial * params.densidadIndustrial) / 1000) *
+        params.precioFazonIndustrialUsdTon *
+        params.dolarDivisaBna,
+      facturacion: salesTotal("IF_FAZON_IND"),
+      diferencia:
+        salesTotal("IF_FAZON_IND") -
+        ((params.litrosFazonIndustrial * params.densidadIndustrial) / 1000) *
+          params.precioFazonIndustrialUsdTon *
+          params.dolarDivisaBna,
+      comision: 0,
+    },
+  ];
+  const fazonTotalTeorico = fazonRows.reduce((total, row) => total + row.valorTeorico, 0);
+  const fazonTotalFacturado = fazonRows.reduce((total, row) => total + row.facturacion, 0);
+  const fazon: CostModel["fazon"] = {
+    rows: fazonRows.map((row) => ({
+      ...row,
+      comision: fazonTotalTeorico ? comisionIfTotal * (row.valorTeorico / fazonTotalTeorico) : 0,
+    })),
+    totalToneladas: fazonRows.reduce((total, row) => total + row.toneladas, 0),
+    totalTeorico: fazonTotalTeorico,
+    totalFacturado: fazonTotalFacturado,
+    totalDiferencia: fazonTotalFacturado - fazonTotalTeorico,
+    totalComisiones: comisionIfTotal,
+  };
 
   const costByProduct = (producto: string, precioLitro: number) => {
     const iibb = precioLitro * params.iibbPct;
@@ -1387,6 +1479,7 @@ function buildCostModel(
     purchases,
     sales,
     products,
+    fazon,
     costDrivers,
     insights,
     kpis: {
@@ -1897,6 +1990,9 @@ export function CostCalculator() {
             <AssumptionInput label="Combustible OB" suffix="%" value={params.pctCombustibleOptiblue * 100} onChange={(value) => updateParam("pctCombustibleOptiblue", value / 100)} />
             <AssumptionInput label="Sueldos admin" value={params.sueldosAdmin} onChange={(value) => updateParam("sueldosAdmin", value)} />
             <AssumptionInput label="Sueldos prod." value={params.sueldosProduccion} onChange={(value) => updateParam("sueldosProduccion", value)} />
+            <AssumptionInput label="Dolar divisa BNA" value={params.dolarDivisaBna} onChange={(value) => updateParam("dolarDivisaBna", value)} />
+            <AssumptionInput label="Fazon 32,5 USD/TN" value={params.precioFazon325UsdTon} onChange={(value) => updateParam("precioFazon325UsdTon", value)} />
+            <AssumptionInput label="Fazon ind. USD/TN" value={params.precioFazonIndustrialUsdTon} onChange={(value) => updateParam("precioFazonIndustrialUsdTon", value)} />
             <AssumptionInput label="Fazon 32,5 L" value={params.litrosFazon325} onChange={(value) => updateParam("litrosFazon325", value)} />
             <AssumptionInput label="Fazon ind. L" value={params.litrosFazonIndustrial} onChange={(value) => updateParam("litrosFazonIndustrial", value)} />
           </div>
@@ -1985,6 +2081,8 @@ export function CostCalculator() {
             onSaveSale={saveSalesRule}
           />
 
+          <FazonPanel model={model} />
+
           <CostDriversPanel model={model} />
 
           <section className="kpi-grid secondary-kpis">
@@ -2004,6 +2102,89 @@ export function CostCalculator() {
         />
       )}
     </div>
+  );
+}
+
+function FazonPanel({ model }: { model: CostModel }) {
+  const hasFazon =
+    model.fazon.rows.some((row) => row.litros || row.facturacion || row.valorTeorico) ||
+    model.fazon.totalComisiones;
+
+  return (
+    <section className="table-card fazon-card">
+      <div className="section-head">
+        <div>
+          <p className="eyebrow">Fazon IF</p>
+          <h2>Control de servicio por tonelada</h2>
+          <p>
+            Compara la facturacion real del servicio contra el valor esperado en USD por tonelada producida.
+            El dolar se carga manualmente como divisa BNA.
+          </p>
+        </div>
+        <div className="driver-summary">
+          <span>{number(model.fazon.totalToneladas)} TN</span>
+          <span>{money(model.fazon.totalTeorico)} esperado</span>
+          <span>{money(model.fazon.totalFacturado)} facturado</span>
+        </div>
+      </div>
+
+      {hasFazon ? (
+        <>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Servicio</th>
+                  <th>Litros</th>
+                  <th>Densidad</th>
+                  <th>Toneladas</th>
+                  <th>USD/TN</th>
+                  <th>Dolar</th>
+                  <th>Esperado</th>
+                  <th>Facturado</th>
+                  <th>Diferencia</th>
+                </tr>
+              </thead>
+              <tbody>
+                {model.fazon.rows.map((row) => (
+                  <tr key={row.producto}>
+                    <td><strong>{row.producto}</strong></td>
+                    <td>{number(row.litros)}</td>
+                    <td>{number(row.densidad)}</td>
+                    <td>{number(row.toneladas)}</td>
+                    <td>{money(row.precioUsdTon).replace("$", "USD ")}</td>
+                    <td>{money(row.tipoCambio)}</td>
+                    <td>{money(row.valorTeorico)}</td>
+                    <td>{money(row.facturacion)}</td>
+                    <td className={row.diferencia < 0 ? "negative" : undefined}>{money(row.diferencia)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="fazon-summary">
+            <div>
+              <span>Diferencia total</span>
+              <strong className={model.fazon.totalDiferencia < 0 ? "negative" : undefined}>
+                {money(model.fazon.totalDiferencia)}
+              </strong>
+            </div>
+            <div>
+              <span>Comisiones IF registradas</span>
+              <strong>{money(model.fazon.totalComisiones)}</strong>
+            </div>
+            <div>
+              <span>Facturado neto de comisiones</span>
+              <strong>{money(model.fazon.totalFacturado - model.fazon.totalComisiones)}</strong>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="empty-state">
+          Carga litros de fazon, precios USD/TN y dolar divisa BNA para ver el control del servicio.
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -2639,7 +2820,7 @@ function AllocationMaster({
     SALES_RULES.some((baseRule) => key(baseRule.articulo) === key(rule.articulo)),
   );
   const sensitivePurchaseRules = customPurchaseRules.filter((rule) =>
-    ["COMPENSACION_IF", "NO_COSTO", "INVERSION", "RESULTADO_FINANCIERO", "OTROS"].includes(rule.tipo),
+    ["COMISION_IF", "COMPENSACION_IF", "NO_COSTO", "INVERSION", "RESULTADO_FINANCIERO", "OTROS"].includes(rule.tipo),
   );
   const visiblePurchaseTypes = PURCHASE_TYPES.filter((tipo) => matches([tipo, purchaseTypeName(tipo)]));
 
