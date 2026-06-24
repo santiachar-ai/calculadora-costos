@@ -22,6 +22,16 @@ function findColumn(row: SheetRow, predicate: (value: string) => boolean) {
 }
 
 function normalizeSalesRows(rows: SheetRow[]) {
+  const looksLikeStockMovement = rows
+    .slice(0, 8)
+    .some((row) =>
+      row.some((cell) => {
+        const value = normalize(cell);
+        return value.includes("MOVIMIENTOS DE MERCADERIA") || value.includes("MOVIMIENTOS DE MERCADERÍA");
+      }),
+    );
+  if (looksLikeStockMovement) return rows;
+
   const titleFound = rows
     .slice(0, 8)
     .some((row) =>
