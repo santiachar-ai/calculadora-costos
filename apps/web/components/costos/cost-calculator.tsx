@@ -84,10 +84,60 @@ type ProductResult = {
   margenTotal: number;
 };
 
+type CostDriver = {
+  label: string;
+  value: number;
+  share: number;
+  reductionImpact: number;
+  controllability: "alta" | "media" | "baja";
+};
+
+type ProductCostDrivers = {
+  producto: string;
+  litros: number;
+  precioLitro: number;
+  costoLitro: number;
+  costoGestionLitro: number;
+  margenGestionLitro: number;
+  drivers: CostDriver[];
+  topDriver: CostDriver | null;
+  reducibleTotal: number;
+  opportunity: string;
+};
+
+type CostLever = {
+  label: string;
+  value: number;
+  share: number;
+  reductionImpact: number;
+  controllability: "alta" | "media" | "baja";
+  affectedProducts: number;
+};
+
+type CostRisk = {
+  producto: string;
+  margenGestionLitro: number;
+  costoGestionLitro: number;
+  precioLitro: number;
+  litros: number;
+  pressure: number;
+};
+
+type CostInsights = {
+  topGlobalDriver: CostLever | null;
+  bestReductionLever: CostLever | null;
+  riskiestProduct: CostRisk | null;
+  totalReduciblePerLiter: number;
+  topLevers: CostLever[];
+  risks: CostRisk[];
+};
+
 type CostModel = {
   purchases: PurchaseRow[];
   sales: SaleRow[];
   products: ProductResult[];
+  costDrivers: ProductCostDrivers[];
+  insights: CostInsights;
   kpis: {
     litrosTotales: number;
     facturacionAnalizada: number;
@@ -124,6 +174,7 @@ const PURCHASE_RULES_STORAGE_KEY = "erp-costos-reglas-compras-v1";
 const SALES_RULES_STORAGE_KEY = "erp-costos-reglas-ventas-v1";
 const PURCHASE_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-compras-v1";
 const SALES_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-ventas-v1";
+const COST_MODEL_SNAPSHOT_STORAGE_KEY = "erp-costos-modelo-calculado-v1";
 
 const PURCHASE_TYPES = [
   "MP",
@@ -174,6 +225,8 @@ type CostConfigurationPayload = {
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001/api";
+const COSTS_CONFIG_MODE =
+  process.env.NEXT_PUBLIC_COSTS_CONFIG_MODE ?? "api";
 
 const DEFAULT_PARAMS: CostParams = {
   concentracionOptiblue: 0.325,
@@ -365,6 +418,10 @@ function parseStoredWorkbook(payload: string | null) {
 }
 
 async function fetchCostConfiguration() {
+  if (COSTS_CONFIG_MODE === "local") {
+    throw new Error("Configuracion en modo local.");
+  }
+
   const response = await fetch(`${API_BASE_URL}/costs/configuration`, {
     cache: "no-store",
   });
@@ -373,6 +430,8 @@ async function fetchCostConfiguration() {
 }
 
 async function persistCostConfiguration(payload: CostConfigurationPayload) {
+  if (COSTS_CONFIG_MODE === "local") return;
+
   const response = await fetch(`${API_BASE_URL}/costs/configuration`, {
     method: "PUT",
     headers: {
@@ -461,20 +520,42 @@ function groupedSalesRowsFromSheet(workbook: XLSX.WorkBook, sheetName: string): 
     defval: "",
     header: 1,
   });
-  const title = key(rows[0]?.[1]);
-  const header = key(rows[2]?.[2]);
-  if (!title.includes("DETALLE DE VENTAS POR ARTICULO") || header !== "COMPROBANTE") return [];
+  const titleFound = rows
+    .slice(0, 8)
+    .some((row) =>
+      row.some((cell) => {
+        const value = key(cell);
+        return value.includes("DETALLE DE VENTAS") && value.includes("ARTICULO");
+      }),
+    );
+  const headerIndex = rows.findIndex((row) =>
+    row.some((cell) => key(cell) === "COMPROBANTE"),
+  );
+  if (!titleFound && headerIndex < 0) return [];
+
+  const headerRow = rows[headerIndex] ?? [];
+  const comprobanteColumn = headerRow.findIndex((cell) => key(cell) === "COMPROBANTE");
+  if (comprobanteColumn < 0) return [];
+
+  const articleColumn = Math.max(comprobanteColumn - 1, 0);
+  const clienteColumn = headerRow.findIndex((cell) => key(cell) === "CLIENTE");
+  const cantidadColumn = headerRow.findIndex((cell) => key(cell) === "CANTIDAD");
+  const unidadColumn = headerRow.findIndex((cell) => key(cell) === "UNIDAD");
+  const precioColumn = headerRow.findIndex((cell) => key(cell).includes("PRECIO") && key(cell).includes("UNIT"));
+  const totalNetoColumn = headerRow.findIndex((cell) => key(cell).includes("TOTAL") && key(cell).includes("NETO"));
+  const totalFinalColumn = headerRow.findIndex((cell) => key(cell).includes("TOTAL") && key(cell).includes("FINAL"));
+  const pendienteColumn = headerRow.findIndex((cell) => key(cell).includes("PENDIENTE"));
 
   let articulo = "";
   const sales: RawRow[] = [];
 
   rows.forEach((row, index) => {
-    if (index < 3) return;
+    if (index <= headerIndex) return;
 
-    const maybeArticle = text(row[1]);
-    const comprobante = text(row[2]);
-    const cliente = text(row[5]);
-    const cantidad = num(row[7]);
+    const maybeArticle = text(row[articleColumn]);
+    const comprobante = text(row[comprobanteColumn]);
+    const cliente = clienteColumn >= 0 ? text(row[clienteColumn]) : text(row[comprobanteColumn + 3]);
+    const cantidad = cantidadColumn >= 0 ? num(row[cantidadColumn]) : num(row[comprobanteColumn + 5]);
 
     const isArticleRow =
       maybeArticle &&
@@ -495,11 +576,11 @@ function groupedSalesRowsFromSheet(workbook: XLSX.WorkBook, sheetName: string): 
       Cliente: cliente,
       Comprobante: comprobante,
       Cantidad: cantidad,
-      Unidad: text(row[8]),
-      Precio_Unit_Neto: num(row[9]),
-      Total_Neto: num(row[15]),
-      Total_Final: num(row[16]),
-      Pendiente: num(row[18]),
+      Unidad: unidadColumn >= 0 ? text(row[unidadColumn]) : text(row[comprobanteColumn + 6]),
+      Precio_Unit_Neto: precioColumn >= 0 ? num(row[precioColumn]) : num(row[comprobanteColumn + 7]),
+      Total_Neto: totalNetoColumn >= 0 ? num(row[totalNetoColumn]) : num(row[comprobanteColumn + 13]),
+      Total_Final: totalFinalColumn >= 0 ? num(row[totalFinalColumn]) : num(row[comprobanteColumn + 14]),
+      Pendiente: pendienteColumn >= 0 ? num(row[pendienteColumn]) : num(row[comprobanteColumn + 16]),
     });
   });
 
@@ -845,11 +926,211 @@ function buildCostModel(
     margenEquilibrioLitro > 0
       ? (gastosAdmin + gastosComerciales + costosFijos) / margenEquilibrioLitro
       : 0;
+  const indirectosGestionLitro = litrosTotales
+    ? (gastosAdmin + gastosComerciales + costosFijos) / litrosTotales
+    : 0;
+
+  const productCostComponents = (row: ProductResult) => {
+    const iibb = row.precioLitro * params.iibbPct;
+    const comision = row.precioLitro * params.comisionPct;
+    const shared = [
+      { label: "Muestras y control", value: muestrasPorLitro, controllability: "media" as const },
+      { label: "IIBB y comision", value: iibb + comision, controllability: "baja" as const },
+      { label: "Indirectos gestion", value: indirectosGestionLitro, controllability: "media" as const },
+    ];
+
+    if (row.producto === "OPTIBLUE_10") {
+      return [
+        { label: "Materia prima", value: mpOptiblue, controllability: "media" as const },
+        { label: "Bidon 10L", value: params.costoBidon10 / 10, controllability: "alta" as const },
+        { label: "Etiqueta", value: params.costoEtiqueta15 / 10, controllability: "alta" as const },
+        { label: "Flete", value: fleteOptiblueLitro, controllability: "media" as const },
+        { label: "Logistica", value: logisticaOptiblueLitro, controllability: "alta" as const },
+        { label: "Costo fabril", value: costoFabrilLitro, controllability: "media" as const },
+        ...shared,
+      ];
+    }
+    if (row.producto === "OPTIBLUE_20") {
+      return [
+        { label: "Materia prima", value: mpOptiblue, controllability: "media" as const },
+        { label: "Bidon 20L", value: params.costoBidon20 / 20, controllability: "alta" as const },
+        { label: "Etiqueta", value: params.costoEtiqueta15 / 20, controllability: "alta" as const },
+        { label: "Flete", value: fleteOptiblueLitro, controllability: "media" as const },
+        { label: "Logistica", value: logisticaOptiblueLitro, controllability: "alta" as const },
+        { label: "Costo fabril", value: costoFabrilLitro, controllability: "media" as const },
+        ...shared,
+      ];
+    }
+    if (row.producto === "OPTIBLUE_IBC") {
+      return [
+        { label: "Materia prima", value: mpOptiblue, controllability: "media" as const },
+        { label: "Etiqueta IBC", value: params.costoEtiqueta23 / 1000, controllability: "alta" as const },
+        { label: "Flete", value: fleteOptiblueLitro, controllability: "media" as const },
+        { label: "Logistica", value: logisticaOptiblueLitro, controllability: "alta" as const },
+        { label: "Precintos", value: precintosPorLitro, controllability: "alta" as const },
+        { label: "Costo fabril", value: costoFabrilLitro, controllability: "media" as const },
+        ...shared,
+      ];
+    }
+    if (row.producto === "INDUSTRIAL") {
+      return [
+        { label: "Materia prima", value: mpIndustrial, controllability: "media" as const },
+        { label: "Flete", value: fleteIndustrialLitro, controllability: "media" as const },
+        { label: "Gas", value: gasIndustrialLitro, controllability: "media" as const },
+        { label: "Costo fabril", value: costoFabrilLitro, controllability: "media" as const },
+        ...shared,
+      ];
+    }
+    if (row.producto === "IF_FAZON_325") {
+      return [
+        { label: "Variable fazon", value: params.costoVariableFazonLitro, controllability: "media" as const },
+        { label: "Precintos", value: precintosPorLitro, controllability: "alta" as const },
+        ...shared,
+      ];
+    }
+    if (row.producto === "IF_FAZON_IND") {
+      return [
+        { label: "Gas", value: gasIndustrialLitro, controllability: "media" as const },
+        { label: "Variable fazon", value: params.costoVariableFazonLitro, controllability: "media" as const },
+        ...shared,
+      ];
+    }
+    if (row.producto === "OPTIPURE_GRANEL") {
+      return [
+        { label: "OptiPure granel", value: params.costoOptipureGranelLitro, controllability: "media" as const },
+        ...shared,
+      ];
+    }
+    if (row.producto === "OPTIPURE_BIDON") {
+      return [
+        { label: "OptiPure granel", value: params.costoOptipureGranelLitro, controllability: "media" as const },
+        { label: "Bidon OptiPure", value: params.costoBidonOptipure / 5, controllability: "alta" as const },
+        { label: "Etiqueta OptiPure", value: params.costoEtiquetaOptipure / 5, controllability: "alta" as const },
+        ...shared,
+      ];
+    }
+    return shared;
+  };
+
+  const costDrivers = products.map((row) => {
+    const rawDrivers = productCostComponents(row).filter((driver) => driver.value > 0);
+    const total = rawDrivers.reduce((acc, driver) => acc + driver.value, 0);
+    const drivers = rawDrivers
+      .map((driver) => ({
+        ...driver,
+        share: total ? driver.value / total : 0,
+        reductionImpact: driver.controllability === "baja" ? 0 : driver.value * 0.1,
+      }))
+      .sort((a, b) => b.value - a.value);
+    const reducibleTotal = drivers.reduce((acc, driver) => acc + driver.reductionImpact, 0);
+    const topDriver = drivers[0] ?? null;
+    const bestLever = drivers
+      .filter((driver) => driver.reductionImpact > 0)
+      .sort((a, b) => b.reductionImpact - a.reductionImpact)[0];
+
+    return {
+      producto: row.producto,
+      litros: row.litros,
+      precioLitro: row.precioLitro,
+      costoLitro: row.costoLitro,
+      costoGestionLitro: total,
+      margenGestionLitro: row.precioLitro - total,
+      drivers,
+      topDriver,
+      reducibleTotal,
+      opportunity: bestLever
+        ? `Reducir 10% ${bestLever.label.toLowerCase()} mejora el margen aprox. ${money(bestLever.reductionImpact)} por litro.`
+        : "Sin palancas claras hasta cargar mas datos de costos.",
+    };
+  });
+
+  const activeCostDrivers = costDrivers.filter(
+    (product) => product.litros > 0 || product.costoGestionLitro > 0,
+  );
+  const leverMap = new Map<
+    string,
+    {
+      label: string;
+      value: number;
+      reductionImpact: number;
+      controllability: "alta" | "media" | "baja";
+      affectedProducts: Set<string>;
+    }
+  >();
+  const weightedCostBase = activeCostDrivers.reduce(
+    (total, product) => total + product.costoGestionLitro * Math.max(product.litros, 1),
+    0,
+  );
+
+  activeCostDrivers.forEach((product) => {
+    const weight = Math.max(product.litros, 1);
+    product.drivers.forEach((driver) => {
+      const current =
+        leverMap.get(driver.label) ??
+        {
+          label: driver.label,
+          value: 0,
+          reductionImpact: 0,
+          controllability: driver.controllability,
+          affectedProducts: new Set<string>(),
+        };
+      current.value += driver.value * weight;
+      current.reductionImpact += driver.reductionImpact * weight;
+      current.affectedProducts.add(product.producto);
+      if (current.controllability !== "alta" && driver.controllability === "alta") {
+        current.controllability = "alta";
+      } else if (current.controllability === "baja" && driver.controllability === "media") {
+        current.controllability = "media";
+      }
+      leverMap.set(driver.label, current);
+    });
+  });
+
+  const topLevers = Array.from(leverMap.values())
+    .map((lever) => ({
+      label: lever.label,
+      value: lever.value,
+      share: weightedCostBase ? lever.value / weightedCostBase : 0,
+      reductionImpact: lever.reductionImpact,
+      controllability: lever.controllability,
+      affectedProducts: lever.affectedProducts.size,
+    }))
+    .sort((a, b) => b.value - a.value);
+  const reductionLevers = [...topLevers].sort((a, b) => b.reductionImpact - a.reductionImpact);
+  const risks = activeCostDrivers
+    .map((product) => {
+      const pressure = product.precioLitro > 0 ? product.costoGestionLitro / product.precioLitro : 0;
+      return {
+        producto: product.producto,
+        margenGestionLitro: product.margenGestionLitro,
+        costoGestionLitro: product.costoGestionLitro,
+        precioLitro: product.precioLitro,
+        litros: product.litros,
+        pressure,
+      };
+    })
+    .sort((a, b) => {
+      if (a.margenGestionLitro < 0 && b.margenGestionLitro >= 0) return -1;
+      if (b.margenGestionLitro < 0 && a.margenGestionLitro >= 0) return 1;
+      return b.pressure - a.pressure;
+    });
+  const insights: CostInsights = {
+    topGlobalDriver: topLevers[0] ?? null,
+    bestReductionLever: reductionLevers.find((lever) => lever.reductionImpact > 0) ?? null,
+    riskiestProduct: risks[0] ?? null,
+    totalReduciblePerLiter: litrosTotales
+      ? reductionLevers.reduce((total, lever) => total + lever.reductionImpact, 0) / litrosTotales
+      : 0,
+    topLevers: topLevers.slice(0, 6),
+    risks: risks.slice(0, 4),
+  };
 
   return {
     purchases,
     sales,
     products,
+    costDrivers,
+    insights,
     kpis: {
       litrosTotales,
       facturacionAnalizada,
@@ -1014,6 +1295,29 @@ export function CostCalculator() {
     [params, purchaseRules, purchasesWorkbook, salesRules, salesWorkbook],
   );
 
+  useEffect(() => {
+    if (!configurationLoaded) return;
+    if (!model) {
+      window.localStorage.removeItem(COST_MODEL_SNAPSHOT_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(
+      COST_MODEL_SNAPSHOT_STORAGE_KEY,
+      JSON.stringify({
+        updatedAt: Date.now(),
+        files: {
+          purchases: purchasesFileName,
+          sales: salesFileName,
+        },
+        kpis: model.kpis,
+        insights: model.insights,
+        products: model.products,
+        review: model.review,
+      }),
+    );
+  }, [configurationLoaded, model, purchasesFileName, salesFileName]);
+
   async function parseFile(file: File | undefined) {
     if (!file) return null;
     const buffer = await file.arrayBuffer();
@@ -1093,7 +1397,8 @@ export function CostCalculator() {
     if (configurationExportFile) window.URL.revokeObjectURL(configurationExportFile.url);
     const url = window.URL.createObjectURL(blob);
     setConfigurationExportFile({
-      content,
+      content,erp-costos-modelo-calculado-v1
+                               
       fileName: `configuracion-costos-${new Date().toISOString().slice(0, 10)}.json`,
       url,
     });
@@ -1423,6 +1728,8 @@ export function CostCalculator() {
             onSaveSale={saveSalesRule}
           />
 
+          <CostDriversPanel model={model} />
+
           <section className="kpi-grid secondary-kpis">
             <Kpi label="Logistica OptiBlue x L" value={money(model.kpis.logisticaOptiblueLitro)} />
             <Kpi label="Costo fabril x L" value={money(model.kpis.costoFabrilLitro)} />
@@ -1440,6 +1747,161 @@ export function CostCalculator() {
         />
       )}
     </div>
+  );
+}
+
+function CostDriversPanel({ model }: { model: CostModel }) {
+  const visibleProducts = model.costDrivers.filter(
+    (product) => product.litros > 0 || product.costoGestionLitro > 0,
+  );
+  const { insights } = model;
+
+  return (
+    <section className="cost-drivers-section">
+      <div className="section-head">
+        <div>
+          <p className="eyebrow">Drivers de costo</p>
+          <h2>Que empuja el precio por producto</h2>
+          <p>
+            Ranking por incidencia en el costo por litro. El costo de gestion suma variables e indirectos
+            para ver la presion real sobre el precio.
+          </p>
+        </div>
+        <div className="driver-summary">
+          {insights.topLevers.slice(0, 4).map((driver) => (
+            <span key={driver.label}>{driver.label}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="insight-grid">
+        <article className="insight-card">
+          <span>Mayor incidencia global</span>
+          <strong>{insights.topGlobalDriver?.label ?? "Sin datos"}</strong>
+          <p>
+            {insights.topGlobalDriver
+              ? `${pct(insights.topGlobalDriver.share)} del costo ponderado analizado.`
+              : "Carga ventas y compras para ver el costo dominante."}
+          </p>
+        </article>
+        <article className="insight-card">
+          <span>Mejor palanca reducible</span>
+          <strong>{insights.bestReductionLever?.label ?? "Sin palanca"}</strong>
+          <p>
+            {insights.bestReductionLever
+              ? `Un 10% menos impacta aprox. ${money(insights.bestReductionLever.reductionImpact)} en el periodo.`
+              : "Todavia no hay drivers controlables con impacto calculado."}
+          </p>
+        </article>
+        <article className="insight-card">
+          <span>Producto bajo presion</span>
+          <strong>{insights.riskiestProduct?.producto ?? "Sin datos"}</strong>
+          <p>
+            {insights.riskiestProduct
+              ? `${pct(insights.riskiestProduct.pressure)} del precio queda absorbido por costos de gestion.`
+              : "No hay productos con precio y costo comparables."}
+          </p>
+        </article>
+        <article className="insight-card">
+          <span>Potencial total 10%</span>
+          <strong>{money(insights.totalReduciblePerLiter)} / L</strong>
+          <p>Ahorro ponderado si se reducen 10% las palancas controlables.</p>
+        </article>
+      </div>
+
+      <div className="lever-board">
+        <article className="lever-panel">
+          <div>
+            <p className="eyebrow">Palancas</p>
+            <h3>Donde enfocar reduccion</h3>
+          </div>
+          <div className="lever-list">
+            {insights.topLevers.map((lever) => (
+              <div className="lever-row" key={lever.label}>
+                <div>
+                  <strong>{lever.label}</strong>
+                  <span>{lever.affectedProducts} productos afectados - control {lever.controllability}</span>
+                </div>
+                <div>
+                  <strong>{pct(lever.share)}</strong>
+                  <span>{money(lever.reductionImpact)} impacto 10%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+        <article className="lever-panel">
+          <div>
+            <p className="eyebrow">Alertas</p>
+            <h3>Productos a revisar primero</h3>
+          </div>
+          <div className="lever-list">
+            {insights.risks.map((risk) => (
+              <div className="lever-row" key={risk.producto}>
+                <div>
+                  <strong>{risk.producto}</strong>
+                  <span>{number(risk.litros)} L analizados - costo {money(risk.costoGestionLitro)} / L</span>
+                </div>
+                <div>
+                  <strong className={risk.margenGestionLitro < 0 ? "negative" : undefined}>
+                    {money(risk.margenGestionLitro)}
+                  </strong>
+                  <span>{pct(risk.pressure)} presion</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </article>
+      </div>
+
+      <div className="driver-grid">
+        {visibleProducts.map((product) => (
+          <article className="driver-card" key={product.producto}>
+            <div className="driver-card-head">
+              <div>
+                <h3>{product.producto}</h3>
+                <span>{number(product.litros)} L analizados</span>
+              </div>
+              <strong>{product.topDriver?.label ?? "Sin driver"}</strong>
+            </div>
+
+            <div className="driver-metrics">
+              <div>
+                <span>Costo gestion/L</span>
+                <strong>{money(product.costoGestionLitro)}</strong>
+              </div>
+              <div>
+                <span>Margen gestion/L</span>
+                <strong className={product.margenGestionLitro < 0 ? "negative" : undefined}>
+                  {money(product.margenGestionLitro)}
+                </strong>
+              </div>
+              <div>
+                <span>Potencial 10%</span>
+                <strong>{money(product.reducibleTotal)}</strong>
+              </div>
+            </div>
+
+            <div className="driver-bars">
+              {product.drivers.slice(0, 5).map((driver) => (
+                <div className="driver-row" key={`${product.producto}-${driver.label}`}>
+                  <div>
+                    <span>{driver.label}</span>
+                    <strong>{money(driver.value)} / L</strong>
+                  </div>
+                  <div className="driver-bar">
+                    <span style={{ width: `${Math.max(driver.share * 100, 3)}%` }} />
+                  </div>
+                  <em>{pct(driver.share)}</em>
+                </div>
+              ))}
+            </div>
+
+            <p className="driver-opportunity">{product.opportunity}</p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
