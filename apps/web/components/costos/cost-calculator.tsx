@@ -181,6 +181,7 @@ const PURCHASE_TYPES = [
   "MP_FLETE",
   "FLETE",
   "GASTO_COMERCIAL",
+  "COMPENSACION_IF",
   "LOGISTICA_COMB",
   "LOGISTICA",
   "GAS",
@@ -195,11 +196,144 @@ const PURCHASE_TYPES = [
   "COSTO FIJO",
   "INVERSION",
   "INSUMO_CONTROL",
+  "ENVASE_CONTROL",
+  "ETIQUETA_CONTROL",
   "ACCESORIO_COMPRA",
   "NO_COSTO",
   "RESULTADO_FINANCIERO",
   "OTROS",
 ];
+
+const PURCHASE_TYPE_DETAILS: Record<
+  string,
+  { label: string; description: string; impact: "suma costo" | "resta ingreso" | "fuera del costo" | "revisar" }
+> = {
+  MP: {
+    label: "Materia prima directa",
+    description: "Insumos que forman parte directa del producto terminado.",
+    impact: "suma costo",
+  },
+  MP_FLETE: {
+    label: "Flete de materia prima",
+    description: "Transporte asociado a la compra de materia prima.",
+    impact: "suma costo",
+  },
+  FLETE: {
+    label: "Flete operativo",
+    description: "Transporte que debe asignarse a una familia o producto.",
+    impact: "suma costo",
+  },
+  GASTO_COMERCIAL: {
+    label: "Gasto comercial",
+    description: "Gastos de venta, publicidad, comisiones o acciones comerciales.",
+    impact: "suma costo",
+  },
+  COMPENSACION_IF: {
+    label: "Compensacion IF",
+    description: "Factura recibida por asesoramiento comercial que compensa servicios de fazon IF.",
+    impact: "resta ingreso",
+  },
+  LOGISTICA_COMB: {
+    label: "Combustible logistico",
+    description: "Combustible de reparto o movimientos logisticos.",
+    impact: "suma costo",
+  },
+  LOGISTICA: {
+    label: "Logistica",
+    description: "Peajes, viaticos y gastos logisticos operativos.",
+    impact: "suma costo",
+  },
+  GAS: {
+    label: "Gas industrial",
+    description: "Gas o energia termica asignada a produccion industrial.",
+    impact: "suma costo",
+  },
+  ADMIN: {
+    label: "Administracion",
+    description: "Gastos administrativos generales.",
+    impact: "suma costo",
+  },
+  "ADMIN VARIOS": {
+    label: "Administracion varios",
+    description: "Gastos administrativos menores o mixtos.",
+    impact: "suma costo",
+  },
+  "ADMIN IVA": {
+    label: "Administracion IVA",
+    description: "Gastos administrativos con tratamiento especial de IVA.",
+    impact: "suma costo",
+  },
+  IMPUESTOS: {
+    label: "Impuestos",
+    description: "Impuestos no recuperables o cargos fiscales de gestion.",
+    impact: "suma costo",
+  },
+  FABRIL_ELECTRICIDAD: {
+    label: "Fabril electricidad",
+    description: "Electricidad e insumos electricos de planta.",
+    impact: "suma costo",
+  },
+  FABRIL_MANTENIMIENTO: {
+    label: "Fabril mantenimiento",
+    description: "Mantenimiento de maquinaria, galpon o instalaciones productivas.",
+    impact: "suma costo",
+  },
+  FABRIL_INSUMOS: {
+    label: "Fabril insumos",
+    description: "Insumos de laboratorio, limpieza o ferreteria asociados a planta.",
+    impact: "suma costo",
+  },
+  FABRIL_SEGURIDAD: {
+    label: "Fabril seguridad",
+    description: "Servicios de seguridad o area protegida de planta.",
+    impact: "suma costo",
+  },
+  "COSTO FIJO": {
+    label: "Costo fijo",
+    description: "Costos estructurales no variables por litro.",
+    impact: "suma costo",
+  },
+  INVERSION: {
+    label: "Inversion",
+    description: "Obras, maquinaria o mejoras que no deberian ir al costo mensual operativo.",
+    impact: "fuera del costo",
+  },
+  INSUMO_CONTROL: {
+    label: "Insumos de control",
+    description: "Muestras, precintos y materiales usados para control de calidad/trazabilidad.",
+    impact: "suma costo",
+  },
+  ENVASE_CONTROL: {
+    label: "Envases controlados",
+    description: "Bidones o envases que alimentan costos unitarios controlados por parametro.",
+    impact: "suma costo",
+  },
+  ETIQUETA_CONTROL: {
+    label: "Etiquetas controladas",
+    description: "Etiquetas que alimentan costos unitarios controlados por parametro.",
+    impact: "suma costo",
+  },
+  ACCESORIO_COMPRA: {
+    label: "Accesorio comprado",
+    description: "IBC, tarimas, tambores u otros accesorios comprados para reventa o uso operativo.",
+    impact: "suma costo",
+  },
+  NO_COSTO: {
+    label: "No costo",
+    description: "Movimientos que deben quedar fuera del calculo de costos.",
+    impact: "fuera del costo",
+  },
+  RESULTADO_FINANCIERO: {
+    label: "Resultado financiero",
+    description: "Diferencias de cambio y ajustes financieros.",
+    impact: "fuera del costo",
+  },
+  OTROS: {
+    label: "Otros",
+    description: "Categoria temporal hasta definir una imputacion mas precisa.",
+    impact: "revisar",
+  },
+};
 
 const PURCHASE_PRODUCTS = [
   "Industrial",
@@ -212,6 +346,7 @@ const PURCHASE_PRODUCTS = [
   "Control",
   "Envases",
   "Financiero",
+  "IF Compensacion",
 ];
 
 const SALES_TYPES = ["PRODUCTO", "SERVICIO", "ACCESORIO", "OTROS"];
@@ -259,7 +394,103 @@ const DEFAULT_PARAMS: CostParams = {
   litrosFazonIndustrial: 0,
 };
 
+const MAY_2026_PURCHASE_RULES: PurchaseRule[] = [
+  { articulo: "UREA GRANULADA 46-0-0", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "MP", producto: "Industrial" },
+  { articulo: "Urea Granulada en Big Bag (solucion)", proveedor: "Compañía de Negocios Agropecuarios CNA S.A.", tipo: "MP", producto: "Industrial" },
+  { articulo: "Flete por ventas", proveedor: "Transporte Morala Claudio S.A.", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
+  { articulo: "PUBLICIDAD", proveedor: "AZAR MOTOR SPORTS S.A.", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
+  { articulo: "Flete por ventas", proveedor: "Transporte RB", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
+  { articulo: "PUBLICIDAD", proveedor: "Alberti Pablo Alejandro", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
+  { articulo: "Cheque rechazado", proveedor: "Construcciones Civil-Mecánica Arrecifes SRL", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
+  { articulo: "PUBLICIDAD", proveedor: "Trosset Nicolas", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Macellari Juan de Dios", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Flete por ventas", proveedor: "Martinelli Brenda", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
+  { articulo: "Flete por ventas", proveedor: "RAMIREZ RAMON", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
+  { articulo: "Combustible camion", proveedor: "Gastecmor S.A.", tipo: "LOGISTICA_COMB", producto: "OptiBlue" },
+  { articulo: "Servicio GAS", proveedor: "Buenos Aires Gas S.A.", tipo: "GAS", producto: "Industrial" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Fontana Jorge Eduardo y Sicolone Gerardo Oscar", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Manchot SRL", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Ricardo Bartoli y Cía. S.A.", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "RAYFOC Ingeniería + Innovación de Arrecfes S.A.", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Insumos ferretería", proveedor: "Zanzottera Marcelo Oscar", tipo: "FABRIL_INSUMOS", producto: "Planta" },
+  { articulo: "Diferencia de Cambio", proveedor: "Compañía de Negocios Agropecuarios CNA S.A.", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Del Valle José Jesús", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Comisionista", proveedor: "Rios Diego Rubén", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
+  { articulo: "Comisionista", proveedor: "Gyselink Hugo Daniel", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
+  { articulo: "Flete por ventas", proveedor: "FERTILIK S.A.", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
+  { articulo: "Calcomanias 15cm x 15cm + laca", proveedor: "Gomez Juan María", tipo: "ETIQUETA_CONTROL", producto: "OptiBlue" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Fabian A. Bethular y Luis P. Bethular", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Viaticos hotel", proveedor: "CRIADO RITA GRACIELA", tipo: "LOGISTICA", producto: "OptiBlue" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "P. Bouvier Maquinarias S.A.S.", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "MG Ballester SRL", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Calcomanias 23cm x 30cm + laca", proveedor: "Gomez Juan María", tipo: "ETIQUETA_CONTROL", producto: "OptiBlue" },
+  { articulo: "Insumos electricidad", proveedor: "Electricidad Total S.A.", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
+  { articulo: "Insumos laboratorio", proveedor: "INSTRUMENTAL PASTEUR SRL", tipo: "FABRIL_INSUMOS", producto: "Planta" },
+  { articulo: "Insumos ferretería", proveedor: "Fontana Jorge Eduardo y Sicolone Gerardo Oscar", tipo: "FABRIL_INSUMOS", producto: "Planta" },
+  { articulo: "Viaticos peaje", proveedor: "Grupo Concesionario del Oeste S.A.", tipo: "LOGISTICA", producto: "OptiBlue" },
+  { articulo: "Impuestos internos", proveedor: "S.A. Importadora y Exportadora de la Patagonia", tipo: "IMPUESTOS", producto: "Empresa" },
+  { articulo: "Viaticos peaje", proveedor: "Corredores Viales S.A.", tipo: "LOGISTICA", producto: "OptiBlue" },
+  { articulo: "Impuestos internos", proveedor: "Cencosud S.A.", tipo: "IMPUESTOS", producto: "Empresa" },
+  { articulo: "Viaticos peaje", proveedor: "Autopistas del Sol S.A.", tipo: "LOGISTICA", producto: "OptiBlue" },
+  { articulo: "Ajuste por redondeo", proveedor: "Keh-Com SA", tipo: "NO_COSTO", producto: "Empresa" },
+  { articulo: "Ajuste por redondeo", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "NO_COSTO", producto: "Empresa" },
+  { articulo: "Ajuste por redondeo", proveedor: "Gastecmor S.A.", tipo: "NO_COSTO", producto: "Empresa" },
+  { articulo: "Ajuste por redondeo", proveedor: "Servicentro Arrecifes S.R.L.", tipo: "NO_COSTO", producto: "Empresa" },
+  { articulo: "Ajuste por redondeo", proveedor: "Marillet Oscar Luis", tipo: "NO_COSTO", producto: "Empresa" },
+  { articulo: "Ajuste por redondeo", proveedor: "Buroni Comercial S.A.", tipo: "NO_COSTO", producto: "Empresa" },
+  { articulo: "Ajuste por redondeo", proveedor: "Compañía de Negocios Agropecuarios CNA S.A.", tipo: "NO_COSTO", producto: "Empresa" },
+  { articulo: "Diferencia de Cambio", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
+  { articulo: "Solución de urea al 32.5% - LTS", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "MP", producto: "OptiBlue" },
+  { articulo: "ASESORAMIENTO COMERCIAL", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "COMPENSACION_IF", producto: "IF Compensacion" },
+  { articulo: "Construcción nave industrial 20x48", proveedor: "Construcciones Civil-Mecánica Arrecifes SRL", tipo: "INVERSION", producto: "Planta" },
+  { articulo: "Combustibles varios", proveedor: "Operadora de Estaciones de Servicio S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Combustibles varios", proveedor: "Casares Combustibles S.R.L", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Mercaderia en general", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Viandas", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Analisis quimicos", proveedor: "SGS Argentina S.A.", tipo: "FABRIL_INSUMOS", producto: "Planta" },
+  { articulo: "Fletes varios", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "FLETE", producto: "Industrial" },
+  { articulo: "MUEBLES Y UTILES", proveedor: "Electrónica Megatone SRL", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Combustible vehiculos", proveedor: "Gastecmor S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Flete urea", proveedor: "MONTIVERO CRISTIAN ANDRES", tipo: "FLETE", producto: "Industrial" },
+  { articulo: "Reparacion muebles y utiles", proveedor: "Sofluc S.A.", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Tambor x 200 lts.", proveedor: "Corigliano José Luis", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
+  { articulo: "Combustible vehiculos", proveedor: "Keh-Com SA", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Combustible planta", proveedor: "Gastecmor S.A.", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
+  { articulo: "Compras super", proveedor: "Buroni Comercial S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Compras super", proveedor: "S.A. Importadora y Exportadora de la Patagonia", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Poliza seguro automotor", proveedor: "Cooperación Mutual Patronal SMSG", tipo: "COSTO FIJO", producto: "Logistica" },
+  { articulo: "Servicios web", proveedor: "E-Buyplace S.A.", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Servicio telefono", proveedor: "AMX Argentina S.A.", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Ropa de trabajo", proveedor: "Manufactura Arrecifes S.A.", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
+  { articulo: "Bobina zuncho 700mx19mm", proveedor: "Raypac SRL", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
+  { articulo: "Combustibles varios", proveedor: "Keh-Com SA", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "INDUMENTARIA", proveedor: "Confecciones Arrecifes SRL", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
+  { articulo: "SERVICIO AREA PROTEGIDA", proveedor: "Millenium Arrecifes Salud S.R.L.", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
+  { articulo: "Combustible vehiculos", proveedor: "Operadora de Estaciones de Servicio S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "TERMINAL ZTECO M1", proveedor: "PRODUCTOS INTEGRA AZULA SRL", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Compras super", proveedor: "COTO Centro Integral de Comercialización S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Combustible vehiculos", proveedor: "Servicentro Arrecifes S.R.L.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Gastos libreria", proveedor: "Sucesión de Defferrarri Armando Luis", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Hebilla CB Zuncho - caja 6S x 500", proveedor: "Raypac SRL", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
+  { articulo: "Compras super", proveedor: "Cencosud S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "TAPA TERMOSELLABLE", proveedor: "ARECOBLEA S.R.L.", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
+  { articulo: "TAPA BIDON", proveedor: "Marillet Oscar Luis", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
+  { articulo: "Asesoramiento seguridad e higiene", proveedor: "Zuvilivia Santiago", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
+  { articulo: "ESMERILADO", proveedor: "Gomez Juan María", tipo: "FABRIL_INSUMOS", producto: "Planta" },
+  { articulo: "Compras super", proveedor: "DISTRIBUIDORA ZONAL OLIVGURRE S.A.S.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "INDUMENTARIA", proveedor: "Alvarez Jorge L. y Norberto O. SH", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
+  { articulo: "Compras super", proveedor: "Día Argentina S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Servicio Internet", proveedor: "Coop. Elect. Integral de Prov. de Serv. Pub. y Soc. de Todd Ltda", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Pesada balanza municipal", proveedor: "A.P.R.A.", tipo: "LOGISTICA", producto: "Logistica" },
+  { articulo: "Compras super", proveedor: "Productos Alimenticios S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Productos de Limpieza", proveedor: "Marillet Oscar Luis", tipo: "FABRIL_INSUMOS", producto: "Planta" },
+  { articulo: "Mantenimiento extintores", proveedor: "García Carlos Alberto", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
+  { articulo: "Servicio telefono", proveedor: "Coop. Elect. Integral de Prov. de Serv. Pub. y Soc. de Todd Ltda", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Descuento recibido x pago en termino", proveedor: "Vigo Carlos A. y Bellfiore Nora M.", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
+];
+
 const PURCHASE_RULES: PurchaseRule[] = [
+  ...MAY_2026_PURCHASE_RULES,
   { articulo: "UREA GRANULADA 46-0-0", proveedor: "IF Ingenieria en Fertilizantes S.A.", tipo: "MP", producto: "Industrial" },
   { articulo: "Flete por ventas", proveedor: "*", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
   { articulo: "Flete", proveedor: "*", tipo: "FLETE", producto: "Industrial" },
@@ -307,7 +538,25 @@ const PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Ajuste tipo de cambio", proveedor: "*", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
 ];
 
+const MAY_2026_SALES_RULES: SalesRule[] = [
+  { articulo: "100231 Solución UREA INDUSTRIAL Granel", tipo: "PRODUCTO", producto: "INDUSTRIAL", generaLitros: true, factor: 1 },
+  { articulo: "100126 Servicio de almacenaje, fraccionamiento y dilución", tipo: "SERVICIO", producto: "IF_FAZON_325", generaLitros: true, factor: 0 },
+  { articulo: "100383 OPTI-N20 Solución Urea Industrial", tipo: "PRODUCTO", producto: "INDUSTRIAL", generaLitros: true, factor: 1 },
+  { articulo: "100134 OPTI-BLUE 32 - Urea líquida 32.5%", tipo: "PRODUCTO", producto: "OPTIBLUE_IBC", generaLitros: true, factor: 1 },
+  { articulo: "100135 OPTI-BLUE 32 - Solución de urea al 32.5%", tipo: "PRODUCTO", producto: "OPTIBLUE_IBC", generaLitros: true, factor: 1 },
+  { articulo: "100225 Solución de urea al 32.5% - LTS", tipo: "PRODUCTO", producto: "OPTIBLUE_IBC", generaLitros: true, factor: 1 },
+  { articulo: "100105 IBC x 1m³ c/u - nuevo", tipo: "ACCESORIO", producto: "IBC", generaLitros: false, factor: 0 },
+  { articulo: "100250 IBC X 1m³ c/u - Nuevo", tipo: "ACCESORIO", producto: "IBC", generaLitros: false, factor: 0 },
+  { articulo: "100202 OPTI-BLUE - Solución de urea al 32,5% - bidón 20L", tipo: "PRODUCTO", producto: "OPTIBLUE_20", generaLitros: true, factor: 20 },
+  { articulo: "100127 Servicio de planta", tipo: "SERVICIO", producto: "IF_FAZON_IND", generaLitros: true, factor: 0 },
+  { articulo: "100201 OPTI-BLUE - Solución de urea al 32,5% - bidón 10L", tipo: "PRODUCTO", producto: "OPTIBLUE_10", generaLitros: true, factor: 10 },
+  { articulo: "100122 Tarima de madera", tipo: "ACCESORIO", producto: "TARIMA", generaLitros: false, factor: 0 },
+  { articulo: "100359 OPTI-PURE - Agua Bidesmineralizada Grado I - Bidón x 5 lts.", tipo: "PRODUCTO", producto: "OPTIPURE_BIDON", generaLitros: true, factor: 5 },
+  { articulo: "100103 Bidón x 20 litros", tipo: "ACCESORIO", producto: "ENVASES", generaLitros: false, factor: 0 },
+];
+
 const SALES_RULES: SalesRule[] = [
+  ...MAY_2026_SALES_RULES,
   { articulo: "100134 OPTI-BLUE 32 - Urea liquida 32.5%", tipo: "PRODUCTO", producto: "OPTIBLUE_IBC", generaLitros: true, factor: 1 },
   { articulo: "100135 OPTI-BLUE 32 - Solucion de urea al 32.5%", tipo: "PRODUCTO", producto: "OPTIBLUE_IBC", generaLitros: true, factor: 1 },
   { articulo: "100201 OPTI-BLUE - Solucion de urea al 32,5% - bidon 10L", tipo: "PRODUCTO", producto: "OPTIBLUE_10", generaLitros: true, factor: 10 },
@@ -357,6 +606,15 @@ function num(value: unknown) {
     : raw.replace(/[^\d.-]/g, "");
   const parsed = Number(normalized.replace(/[^\d.-]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function purchaseTypeName(tipo: string) {
+  return PURCHASE_TYPE_DETAILS[tipo]?.label ?? tipo;
+}
+
+function purchaseTypeOptionLabel(tipo: string) {
+  const detail = PURCHASE_TYPE_DETAILS[tipo];
+  return detail ? `${tipo} - ${detail.label}` : tipo;
 }
 
 function money(value: number) {
@@ -1282,11 +1540,11 @@ export function CostCalculator() {
   }, [configurationExportFile]);
 
   const purchaseRules = useMemo(
-    () => [...customPurchaseRules, ...PURCHASE_RULES],
+    () => [...PURCHASE_RULES, ...customPurchaseRules],
     [customPurchaseRules],
   );
   const salesRules = useMemo(
-    () => [...customSalesRules, ...SALES_RULES],
+    () => [...SALES_RULES, ...customSalesRules],
     [customSalesRules],
   );
 
@@ -2353,7 +2611,7 @@ function AllocationMaster({
   const purchaseProductOptions = [...PURCHASE_PRODUCTS, ...PRODUCT_ORDER].filter(
     (option, index, options) => options.indexOf(option) === index,
   );
-  const salesProductOptions = [...PRODUCT_ORDER, "IBC", "TARIMA", "TAMBOR", "OTROS"];
+  const salesProductOptions = [...PRODUCT_ORDER, "IBC", "TARIMA", "TAMBOR", "ENVASES", "OTROS"];
   const normalizedSearch = key(search);
   const matches = (values: string[]) =>
     !normalizedSearch || values.some((value) => key(value).includes(normalizedSearch));
@@ -2368,6 +2626,22 @@ function AllocationMaster({
     .map((rule, index) => ({ index, rule }))
     .filter(({ rule }) => matches([rule.articulo, rule.tipo, rule.producto]));
   const baseSales = SALES_RULES.filter((rule) => matches([rule.articulo, rule.tipo, rule.producto]));
+  const purchaseConflicts = customPurchaseRules.filter((rule) =>
+    PURCHASE_RULES.some(
+      (baseRule) =>
+        key(baseRule.articulo) === key(rule.articulo) &&
+        (baseRule.proveedor === "*" ||
+          rule.proveedor === "*" ||
+          key(baseRule.proveedor) === key(rule.proveedor)),
+    ),
+  );
+  const salesConflicts = customSalesRules.filter((rule) =>
+    SALES_RULES.some((baseRule) => key(baseRule.articulo) === key(rule.articulo)),
+  );
+  const sensitivePurchaseRules = customPurchaseRules.filter((rule) =>
+    ["COMPENSACION_IF", "NO_COSTO", "INVERSION", "RESULTADO_FINANCIERO", "OTROS"].includes(rule.tipo),
+  );
+  const visiblePurchaseTypes = PURCHASE_TYPES.filter((tipo) => matches([tipo, purchaseTypeName(tipo)]));
 
   function addPurchaseRule() {
     if (!newPurchaseRule.articulo.trim()) return;
@@ -2384,7 +2658,6 @@ function AllocationMaster({
     onAddSales({
       ...newSalesRule,
       articulo: newSalesRule.articulo.trim(),
-      generaLitros: newSalesRule.factor > 0,
     });
     setNewSalesRule({
       articulo: "",
@@ -2417,6 +2690,53 @@ function AllocationMaster({
         </label>
       </div>
 
+      <div className="master-summary-grid">
+        <article className="master-summary-card">
+          <span>Manuales</span>
+          <strong>{customPurchaseRules.length + customSalesRules.length}</strong>
+          <p>Reglas editables que pisan a las reglas base cuando coinciden.</p>
+        </article>
+        <article className="master-summary-card">
+          <span>Base app</span>
+          <strong>{PURCHASE_RULES.length + SALES_RULES.length}</strong>
+          <p>Reglas incluidas como punto de partida para compras y ventas.</p>
+        </article>
+        <article className={purchaseConflicts.length || salesConflicts.length ? "master-summary-card warning" : "master-summary-card"}>
+          <span>Conflictos</span>
+          <strong>{purchaseConflicts.length + salesConflicts.length}</strong>
+          <p>Reglas manuales que reemplazan una regla base existente.</p>
+        </article>
+        <article className={sensitivePurchaseRules.length ? "master-summary-card attention" : "master-summary-card"}>
+          <span>Sensibles</span>
+          <strong>{sensitivePurchaseRules.length}</strong>
+          <p>Compensaciones, inversiones, financieros u otros fuera del costo operativo.</p>
+        </article>
+      </div>
+
+      <article className="table-card audit-card master-catalog-card">
+        <div>
+          <h2>Catalogo de tipos de compra</h2>
+          <p>Usa estas categorias para separar costos reales, movimientos fuera del costo y compensaciones.</p>
+        </div>
+        <div className="master-catalog-grid">
+          {visiblePurchaseTypes.map((tipo) => {
+            const detail = PURCHASE_TYPE_DETAILS[tipo];
+            return (
+              <div className="master-type-card" key={tipo}>
+                <div>
+                  <strong>{tipo}</strong>
+                  <span>{detail?.label ?? tipo}</span>
+                </div>
+                <p>{detail?.description ?? "Sin descripcion cargada."}</p>
+                <em className={`master-impact ${detail?.impact.replace(/\s+/g, "-") ?? "revisar"}`}>
+                  {detail?.impact ?? "revisar"}
+                </em>
+              </div>
+            );
+          })}
+        </div>
+      </article>
+
       <div className="master-grid">
         <article className="table-card audit-card">
           <h2>Compras manuales</h2>
@@ -2439,7 +2759,7 @@ function AllocationMaster({
               onChange={(event) => setNewPurchaseRule((current) => ({ ...current, tipo: event.target.value }))}
             >
               {PURCHASE_TYPES.map((option) => (
-                <option key={option} value={option}>{option}</option>
+                <option key={option} value={option}>{purchaseTypeOptionLabel(option)}</option>
               ))}
             </select>
             <select
@@ -2486,9 +2806,10 @@ function AllocationMaster({
                         onChange={(event) => onUpdatePurchase(index, { ...rule, tipo: event.target.value })}
                       >
                         {PURCHASE_TYPES.map((option) => (
-                          <option key={option} value={option}>{option}</option>
+                          <option key={option} value={option}>{purchaseTypeOptionLabel(option)}</option>
                         ))}
                       </select>
+                      <small className="master-type-hint">{PURCHASE_TYPE_DETAILS[rule.tipo]?.impact ?? "revisar"}</small>
                     </td>
                     <td>
                       <select
@@ -2551,6 +2872,16 @@ function AllocationMaster({
                 setNewSalesRule((current) => ({ ...current, factor: num(event.target.value) }))
               }
             />
+            <label className="master-liters-toggle">
+              <input
+                type="checkbox"
+                checked={newSalesRule.generaLitros}
+                onChange={(event) =>
+                  setNewSalesRule((current) => ({ ...current, generaLitros: event.target.checked }))
+                }
+              />
+              Litros
+            </label>
             <button className="button" type="button" onClick={addSalesRule}>
               Agregar
             </button>
@@ -2602,7 +2933,7 @@ function AllocationMaster({
                         value={rule.factor}
                         onChange={(event) => {
                           const factor = num(event.target.value);
-                          onUpdateSales(index, { ...rule, factor, generaLitros: factor > 0 });
+                          onUpdateSales(index, { ...rule, factor });
                         }}
                       />
                     </td>
@@ -2634,7 +2965,12 @@ function AllocationMaster({
       <div className="master-grid">
         <ReadOnlyRuleTable
           columns={["Articulo", "Proveedor", "Tipo", "Producto"]}
-          rows={basePurchases.map((rule) => [rule.articulo, rule.proveedor, rule.tipo, rule.producto])}
+          rows={basePurchases.map((rule) => [
+            rule.articulo,
+            rule.proveedor,
+            `${rule.tipo} - ${purchaseTypeName(rule.tipo)}`,
+            rule.producto,
+          ])}
           title="Compras base"
         />
         <ReadOnlyRuleTable
@@ -2713,7 +3049,7 @@ function PendingPurchaseRule({
       </div>
       <select value={tipo} onChange={(event) => setTipo(event.target.value)}>
         {PURCHASE_TYPES.map((option) => (
-          <option key={option} value={option}>{option}</option>
+          <option key={option} value={option}>{purchaseTypeOptionLabel(option)}</option>
         ))}
       </select>
       <select value={producto} onChange={(event) => setProducto(event.target.value)}>
