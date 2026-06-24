@@ -1397,8 +1397,7 @@ export function CostCalculator() {
     if (configurationExportFile) window.URL.revokeObjectURL(configurationExportFile.url);
     const url = window.URL.createObjectURL(blob);
     setConfigurationExportFile({
-      content,erp-costos-modelo-calculado-v1
-                               
+      content,
       fileName: `configuracion-costos-${new Date().toISOString().slice(0, 10)}.json`,
       url,
     });
