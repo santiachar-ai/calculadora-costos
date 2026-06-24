@@ -685,6 +685,11 @@ function pct(value: number) {
   }).format(value || 0);
 }
 
+function cssToken(value: unknown, fallback = "revisar") {
+  const token = text(value || fallback).replace(/\s+/g, "-");
+  return token || fallback;
+}
+
 function rowsFromSheet(workbook: XLSX.WorkBook | null, sheetName: string): RawRow[] {
   const sheet = workbook?.Sheets[sheetName];
   if (!sheet) return [];
@@ -3184,7 +3189,7 @@ function AllocationMaster({
                   <span>{detail?.label ?? tipo}</span>
                 </div>
                 <p>{detail?.description ?? "Sin descripcion cargada."}</p>
-                <em className={`master-impact ${detail?.impact.replace(/\s+/g, "-") ?? "revisar"}`}>
+                <em className={`master-impact ${cssToken(detail?.impact)}`}>
                   {detail?.impact ?? "revisar"}
                 </em>
               </div>
