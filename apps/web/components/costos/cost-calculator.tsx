@@ -932,6 +932,45 @@ function remitoArticleKind(articulo: string, unidad: string) {
   return "OTRO";
 }
 
+function remitoNumberFromRow(row: unknown[]) {
+  const preferred = text(row[4]);
+  if (preferred) return preferred;
+
+  const found = row
+    .map((cell) => text(cell))
+    .find((cell) => /^\d{6,}$/.test(cell.replace(/\D/g, "")));
+  return found ?? "";
+}
+
+function remitoQuantityAndUnitFromRow(row: unknown[], fallbackQuantityIndex: number, fallbackUnitIndex: number) {
+  const unitIndex = row.findIndex((cell) => {
+    const unit = key(cell);
+    return unit === "LT" || unit === "TON" || unit === "UNI";
+  });
+
+  if (unitIndex > 0) {
+    return {
+      cantidad: num(row[unitIndex - 1]),
+      unidad: text(row[unitIndex]),
+    };
+  }
+
+  return {
+    cantidad: num(row[fallbackQuantityIndex]),
+    unidad: text(row[fallbackUnitIndex]),
+  };
+}
+
+function remitoArticleFromRow(row: unknown[]) {
+  const preferred = text(row[8]);
+  if (preferred) return preferred;
+
+  const found = row
+    .map((cell) => text(cell))
+    .find((cell) => remitoArticleKind(cell, "") !== "OTRO" || /UREA|BID|IBC|TAMBOR/i.test(cell));
+  return found ?? "";
+}
+
 function remitoRowsFromWorkbook(workbook: XLSX.WorkBook | null): RawRow[] {
   if (!workbook) return [];
 
@@ -955,10 +994,9 @@ function remitoRowsFromWorkbook(workbook: XLSX.WorkBook | null): RawRow[] {
         return;
       }
 
-      const comprobante = text(row[4]);
-      const articulo = text(row[8]);
-      const unidad = text(row[11]);
-      const cantidad = num(row[10]);
+      const comprobante = remitoNumberFromRow(row);
+      const articulo = remitoArticleFromRow(row);
+      const { cantidad, unidad } = remitoQuantityAndUnitFromRow(row, 10, 11);
       const kind = remitoArticleKind(articulo, unidad);
 
       if (!cliente || !comprobante || !articulo || kind === "OTRO") return;
@@ -977,6 +1015,28 @@ function remitoRowsFromWorkbook(workbook: XLSX.WorkBook | null): RawRow[] {
   }
 
   return remitos;
+}
+
+function looksLikeRemitosWorkbook(workbook: XLSX.WorkBook) {
+  return workbook.SheetNames.some((sheetName) => {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) return false;
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
+      defval: "",
+      raw: true,
+    });
+    const sample = rows
+      .slice(0, 40)
+      .flat()
+      .map((cell) => key(cell))
+      .join(" ");
+
+    return (
+      sample.includes("MOVIMIENTOS DE MERCADERIA") ||
+      (sample.includes("CLIENTE:") && sample.includes("COMPROBANTE") && sample.includes("ARTICULO"))
+    );
+  });
 }
 
 function summarizeFazonRemitos(workbook: XLSX.WorkBook | null, params: CostParams) {
@@ -1657,7 +1717,7 @@ function detectWorkbookKind(workbook: XLSX.WorkBook) {
   const hasSales =
     workbook.SheetNames.includes("VENTAS_RAW") ||
     workbook.SheetNames.some((sheet) => groupedSalesRowsFromSheet(workbook, sheet).length > 0);
-  const hasRemitos = remitoRowsFromWorkbook(workbook).length > 0;
+  const hasRemitos = remitoRowsFromWorkbook(workbook).length > 0 || looksLikeRemitosWorkbook(workbook);
   return { hasPurchases, hasSales, hasRemitos };
 }
 
