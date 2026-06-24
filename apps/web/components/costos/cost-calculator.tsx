@@ -98,6 +98,16 @@ type FazonResult = {
   facturacion: number;
   diferencia: number;
   comision: number;
+  fuente: string;
+};
+
+type FazonRemitoSummary = {
+  cliente: string;
+  remito: string;
+  litros325: number;
+  toneladas325: number;
+  toneladasIndustrial: number;
+  envases: string[];
 };
 
 type CostDriver = {
@@ -154,11 +164,13 @@ type CostModel = {
   products: ProductResult[];
   fazon: {
     rows: FazonResult[];
+    remitos: FazonRemitoSummary[];
     totalToneladas: number;
     totalTeorico: number;
     totalFacturado: number;
     totalDiferencia: number;
     totalComisiones: number;
+    totalEnvases: number;
   };
   costDrivers: ProductCostDrivers[];
   insights: CostInsights;
@@ -198,6 +210,7 @@ const PURCHASE_RULES_STORAGE_KEY = "erp-costos-reglas-compras-v1";
 const SALES_RULES_STORAGE_KEY = "erp-costos-reglas-ventas-v1";
 const PURCHASE_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-compras-v1";
 const SALES_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-ventas-v1";
+const REMITOS_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-remitos-v1";
 const COST_MODEL_SNAPSHOT_STORAGE_KEY = "erp-costos-modelo-calculado-v1";
 
 const PURCHASE_TYPES = [
@@ -902,6 +915,117 @@ function salesRowsFromWorkbook(workbook: XLSX.WorkBook | null): RawRow[] {
   return [];
 }
 
+function remitoArticleKind(articulo: string, unidad: string) {
+  const normalized = key(articulo);
+  const unit = key(unidad);
+
+  if ((normalized.includes("32.5") || normalized.includes("32,5")) && unit === "LT") return "FAZON_325";
+  if (normalized.includes("SOLUCION UREA") && unit === "TON") return "FAZON_INDUSTRIAL";
+  if (
+    normalized.includes("BIDON") ||
+    normalized.includes("BID ") ||
+    normalized.includes("IBC") ||
+    normalized.includes("TAMBOR")
+  ) {
+    return "ENVASE";
+  }
+  return "OTRO";
+}
+
+function remitoRowsFromWorkbook(workbook: XLSX.WorkBook | null): RawRow[] {
+  if (!workbook) return [];
+
+  const remitos: RawRow[] = [];
+
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) continue;
+
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
+      defval: "",
+      raw: true,
+    });
+    let cliente = "";
+
+    rows.forEach((row) => {
+      const firstCell = text(row[0]);
+      if (firstCell.startsWith("Cliente:")) {
+        cliente = firstCell.replace(/^Cliente:\s*/i, "").trim();
+        return;
+      }
+
+      const comprobante = text(row[4]);
+      const articulo = text(row[8]);
+      const unidad = text(row[11]);
+      const cantidad = num(row[10]);
+      const kind = remitoArticleKind(articulo, unidad);
+
+      if (!cliente || !comprobante || !articulo || kind === "OTRO") return;
+
+      remitos.push({
+        Fecha: row[0],
+        Cliente: cliente,
+        Comprobante: comprobante,
+        Deposito: text(row[5]),
+        Articulo_ERP: articulo,
+        Cantidad: cantidad,
+        Unidad: unidad,
+        Tipo_Remito: kind,
+      });
+    });
+  }
+
+  return remitos;
+}
+
+function summarizeFazonRemitos(workbook: XLSX.WorkBook | null, params: CostParams) {
+  const remitoRows = remitoRowsFromWorkbook(workbook);
+  const grouped = new Map<string, FazonRemitoSummary>();
+
+  remitoRows.forEach((row) => {
+    const cliente = text(row.Cliente);
+    const remito = text(row.Comprobante);
+    const current = grouped.get(`${key(cliente)}|${key(remito)}`) ?? {
+      cliente,
+      remito,
+      litros325: 0,
+      toneladas325: 0,
+      toneladasIndustrial: 0,
+      envases: [],
+    };
+    const cantidad = num(row.Cantidad);
+    const unidad = text(row.Unidad);
+    const articulo = text(row.Articulo_ERP);
+    const tipo = text(row.Tipo_Remito);
+
+    if (tipo === "FAZON_325") {
+      current.litros325 += cantidad;
+      current.toneladas325 += (cantidad * params.densidadOptiblue) / 1000;
+    }
+    if (tipo === "FAZON_INDUSTRIAL") {
+      current.toneladasIndustrial += cantidad;
+    }
+    if (tipo === "ENVASE") {
+      current.envases.push(`${articulo}: ${number(cantidad)} ${unidad}`);
+    }
+
+    grouped.set(`${key(cliente)}|${key(remito)}`, current);
+  });
+
+  const remitos = Array.from(grouped.values()).filter(
+    (row) => row.litros325 || row.toneladasIndustrial || row.envases.length,
+  );
+
+  return {
+    remitos,
+    litros325: remitos.reduce((total, row) => total + row.litros325, 0),
+    toneladas325: remitos.reduce((total, row) => total + row.toneladas325, 0),
+    toneladasIndustrial: remitos.reduce((total, row) => total + row.toneladasIndustrial, 0),
+    totalEnvases: remitos.reduce((total, row) => total + row.envases.length, 0),
+  };
+}
+
 function productionMap(params: CostParams) {
   return new Map<string, number>([
     ["OPTIBLUE_IBC", params.litrosOptiblueIbc],
@@ -964,13 +1088,15 @@ function weightedUnitCost(
 function buildCostModel(
   purchasesWorkbook: XLSX.WorkBook | null,
   salesWorkbook: XLSX.WorkBook | null,
+  remitosWorkbook: XLSX.WorkBook | null,
   params: CostParams,
   purchaseRules: PurchaseRule[],
   salesRules: SalesRule[],
 ): CostModel | null {
   const purchaseRows = purchaseRowsFromWorkbook(purchasesWorkbook);
   const saleRows = salesRowsFromWorkbook(salesWorkbook);
-  if (!purchaseRows.length && !saleRows.length) return null;
+  const remitosSummary = summarizeFazonRemitos(remitosWorkbook, params);
+  if (!purchaseRows.length && !saleRows.length && !remitosSummary.remitos.length) return null;
 
   const classifyPurchase = purchaseLookup(purchaseRules);
   const classifySale = salesLookup(salesRules);
@@ -1154,44 +1280,52 @@ function buildCostModel(
     purchaseTotal("COMISION_IF", "IF Fazon") +
     purchaseTotal("COMPENSACION_IF", "IF Fazon") +
     purchaseTotal("COMPENSACION_IF", "IF Compensacion");
+  const hasRemitosFazon325 = remitosSummary.litros325 > 0;
+  const hasRemitosFazonIndustrial = remitosSummary.toneladasIndustrial > 0;
+  const litrosFazon325 = hasRemitosFazon325 ? remitosSummary.litros325 : params.litrosFazon325;
+  const toneladasFazon325 = hasRemitosFazon325
+    ? remitosSummary.toneladas325
+    : (params.litrosFazon325 * params.densidadOptiblue) / 1000;
+  const toneladasFazonIndustrial = hasRemitosFazonIndustrial
+    ? remitosSummary.toneladasIndustrial
+    : (params.litrosFazonIndustrial * params.densidadIndustrial) / 1000;
+  const litrosFazonIndustrial = hasRemitosFazonIndustrial
+    ? params.densidadIndustrial > 0
+      ? (remitosSummary.toneladasIndustrial * 1000) / params.densidadIndustrial
+      : 0
+    : params.litrosFazonIndustrial;
   const fazonRows: FazonResult[] = [
     {
       producto: "IF_FAZON_325",
-      litros: params.litrosFazon325,
+      litros: litrosFazon325,
       densidad: params.densidadOptiblue,
-      toneladas: (params.litrosFazon325 * params.densidadOptiblue) / 1000,
+      toneladas: toneladasFazon325,
       precioUsdTon: params.precioFazon325UsdTon,
       tipoCambio: params.dolarDivisaBna,
       valorTeorico:
-        ((params.litrosFazon325 * params.densidadOptiblue) / 1000) *
-        params.precioFazon325UsdTon *
-        params.dolarDivisaBna,
+        toneladasFazon325 * params.precioFazon325UsdTon * params.dolarDivisaBna,
       facturacion: salesTotal("IF_FAZON_325"),
       diferencia:
         salesTotal("IF_FAZON_325") -
-        ((params.litrosFazon325 * params.densidadOptiblue) / 1000) *
-          params.precioFazon325UsdTon *
-          params.dolarDivisaBna,
+        toneladasFazon325 * params.precioFazon325UsdTon * params.dolarDivisaBna,
       comision: 0,
+      fuente: hasRemitosFazon325 ? "Remitos" : "Manual",
     },
     {
       producto: "IF_FAZON_IND",
-      litros: params.litrosFazonIndustrial,
+      litros: litrosFazonIndustrial,
       densidad: params.densidadIndustrial,
-      toneladas: (params.litrosFazonIndustrial * params.densidadIndustrial) / 1000,
+      toneladas: toneladasFazonIndustrial,
       precioUsdTon: params.precioFazonIndustrialUsdTon,
       tipoCambio: params.dolarDivisaBna,
       valorTeorico:
-        ((params.litrosFazonIndustrial * params.densidadIndustrial) / 1000) *
-        params.precioFazonIndustrialUsdTon *
-        params.dolarDivisaBna,
+        toneladasFazonIndustrial * params.precioFazonIndustrialUsdTon * params.dolarDivisaBna,
       facturacion: salesTotal("IF_FAZON_IND"),
       diferencia:
         salesTotal("IF_FAZON_IND") -
-        ((params.litrosFazonIndustrial * params.densidadIndustrial) / 1000) *
-          params.precioFazonIndustrialUsdTon *
-          params.dolarDivisaBna,
+        toneladasFazonIndustrial * params.precioFazonIndustrialUsdTon * params.dolarDivisaBna,
       comision: 0,
+      fuente: hasRemitosFazonIndustrial ? "Remitos" : "Manual",
     },
   ];
   const fazonTotalTeorico = fazonRows.reduce((total, row) => total + row.valorTeorico, 0);
@@ -1201,11 +1335,13 @@ function buildCostModel(
       ...row,
       comision: fazonTotalTeorico ? comisionIfTotal * (row.valorTeorico / fazonTotalTeorico) : 0,
     })),
+    remitos: remitosSummary.remitos,
     totalToneladas: fazonRows.reduce((total, row) => total + row.toneladas, 0),
     totalTeorico: fazonTotalTeorico,
     totalFacturado: fazonTotalFacturado,
     totalDiferencia: fazonTotalFacturado - fazonTotalTeorico,
     totalComisiones: comisionIfTotal,
+    totalEnvases: remitosSummary.totalEnvases,
   };
 
   const costByProduct = (producto: string, precioLitro: number) => {
@@ -1521,14 +1657,17 @@ function detectWorkbookKind(workbook: XLSX.WorkBook) {
   const hasSales =
     workbook.SheetNames.includes("VENTAS_RAW") ||
     workbook.SheetNames.some((sheet) => groupedSalesRowsFromSheet(workbook, sheet).length > 0);
-  return { hasPurchases, hasSales };
+  const hasRemitos = remitoRowsFromWorkbook(workbook).length > 0;
+  return { hasPurchases, hasSales, hasRemitos };
 }
 
 export function CostCalculator() {
   const [purchasesWorkbook, setPurchasesWorkbook] = useState<XLSX.WorkBook | null>(null);
   const [salesWorkbook, setSalesWorkbook] = useState<XLSX.WorkBook | null>(null);
+  const [remitosWorkbook, setRemitosWorkbook] = useState<XLSX.WorkBook | null>(null);
   const [purchasesFileName, setPurchasesFileName] = useState("");
   const [salesFileName, setSalesFileName] = useState("");
+  const [remitosFileName, setRemitosFileName] = useState("");
   const [error, setError] = useState("");
   const [params, setParams] = useState<CostParams>(DEFAULT_PARAMS);
   const [customPurchaseRules, setCustomPurchaseRules] = useState<PurchaseRule[]>([]);
@@ -1554,6 +1693,7 @@ export function CostCalculator() {
       const savedSalesRules = window.localStorage.getItem(SALES_RULES_STORAGE_KEY);
       const savedPurchaseFile = window.localStorage.getItem(PURCHASE_FILE_STORAGE_KEY);
       const savedSalesFile = window.localStorage.getItem(SALES_FILE_STORAGE_KEY);
+      const savedRemitosFile = window.localStorage.getItem(REMITOS_FILE_STORAGE_KEY);
 
       try {
         if (saved) setParams({ ...DEFAULT_PARAMS, ...JSON.parse(saved) });
@@ -1570,12 +1710,18 @@ export function CostCalculator() {
           setSalesWorkbook(salesFile.workbook);
           setSalesFileName(salesFile.fileName);
         }
+        const remitosFile = parseStoredWorkbook(savedRemitosFile);
+        if (remitosFile) {
+          setRemitosWorkbook(remitosFile.workbook);
+          setRemitosFileName(remitosFile.fileName);
+        }
       } catch {
         window.localStorage.removeItem(STORAGE_KEY);
         window.localStorage.removeItem(PURCHASE_RULES_STORAGE_KEY);
         window.localStorage.removeItem(SALES_RULES_STORAGE_KEY);
         window.localStorage.removeItem(PURCHASE_FILE_STORAGE_KEY);
         window.localStorage.removeItem(SALES_FILE_STORAGE_KEY);
+        window.localStorage.removeItem(REMITOS_FILE_STORAGE_KEY);
       }
 
       try {
@@ -1642,8 +1788,8 @@ export function CostCalculator() {
   );
 
   const model = useMemo(
-    () => buildCostModel(purchasesWorkbook, salesWorkbook, params, purchaseRules, salesRules),
-    [params, purchaseRules, purchasesWorkbook, salesRules, salesWorkbook],
+    () => buildCostModel(purchasesWorkbook, salesWorkbook, remitosWorkbook, params, purchaseRules, salesRules),
+    [params, purchaseRules, purchasesWorkbook, remitosWorkbook, salesRules, salesWorkbook],
   );
 
   useEffect(() => {
@@ -1660,14 +1806,16 @@ export function CostCalculator() {
         files: {
           purchases: purchasesFileName,
           sales: salesFileName,
+          remitos: remitosFileName,
         },
         kpis: model.kpis,
         insights: model.insights,
         products: model.products,
+        fazon: model.fazon,
         review: model.review,
       }),
     );
-  }, [configurationLoaded, model, purchasesFileName, salesFileName]);
+  }, [configurationLoaded, model, purchasesFileName, remitosFileName, salesFileName]);
 
   async function parseFile(file: File | undefined) {
     if (!file) return null;
@@ -1720,6 +1868,27 @@ export function CostCalculator() {
     }
   }
 
+  async function handleRemitos(file: File | undefined) {
+    setError("");
+    try {
+      const parsed = await parseFile(file);
+      if (!parsed) return;
+      if (!detectWorkbookKind(parsed.workbook).hasRemitos) {
+        throw new Error("El archivo seleccionado no parece ser un detalle de remitos.");
+      }
+      setRemitosWorkbook(parsed.workbook);
+      setRemitosFileName(file?.name ?? "");
+      window.localStorage.setItem(
+        REMITOS_FILE_STORAGE_KEY,
+        JSON.stringify({ fileName: file?.name ?? "", data: arrayBufferToBase64(parsed.buffer) }),
+      );
+    } catch (caught) {
+      setRemitosWorkbook(null);
+      setRemitosFileName("");
+      setError(caught instanceof Error ? caught.message : "No se pudo leer remitos.");
+    }
+  }
+
   function updateParam(name: keyof CostParams, value: number) {
     setParams((current) => ({ ...current, [name]: value }));
   }
@@ -1727,10 +1896,13 @@ export function CostCalculator() {
   function clearSavedFiles() {
     setPurchasesWorkbook(null);
     setSalesWorkbook(null);
+    setRemitosWorkbook(null);
     setPurchasesFileName("");
     setSalesFileName("");
+    setRemitosFileName("");
     window.localStorage.removeItem(PURCHASE_FILE_STORAGE_KEY);
     window.localStorage.removeItem(SALES_FILE_STORAGE_KEY);
+    window.localStorage.removeItem(REMITOS_FILE_STORAGE_KEY);
   }
 
   function exportConfiguration() {
@@ -1860,7 +2032,7 @@ export function CostCalculator() {
           <span className="config-status">
             Configuracion: {configurationSource === "api" ? "base de datos" : "local"}
           </span>
-          {(purchasesFileName || salesFileName) ? (
+          {(purchasesFileName || salesFileName || remitosFileName) ? (
             <button className="button-secondary compact-action" type="button" onClick={clearSavedFiles}>
               Borrar archivos guardados
             </button>
@@ -1876,6 +2048,11 @@ export function CostCalculator() {
             <span>Ventas XLSX</span>
             <strong>{salesFileName || "Seleccionar ventas"}</strong>
             <input accept=".xlsx,.xls" type="file" onChange={(event) => handleSales(event.target.files?.[0])} />
+          </label>
+          <label className="upload-zone">
+            <span>Remitos IF XLSX</span>
+            <strong>{remitosFileName || "Seleccionar remitos"}</strong>
+            <input accept=".xlsx,.xls" type="file" onChange={(event) => handleRemitos(event.target.files?.[0])} />
           </label>
           <div className="config-transfer">
             <button className="button-secondary" type="button" onClick={exportConfiguration}>
@@ -2013,7 +2190,7 @@ export function CostCalculator() {
       ) : !model ? (
         <section className="empty-state costs-empty">
           <strong>Listo para calcular.</strong>
-          <span>Carga compras y ventas del ERP para cruzar costos, litros y facturacion.</span>
+          <span>Carga compras, ventas y remitos IF del ERP para cruzar costos, litros y facturacion.</span>
         </section>
       ) : activeView === "calculo" ? (
         <>
@@ -2118,13 +2295,14 @@ function FazonPanel({ model }: { model: CostModel }) {
           <h2>Control de servicio por tonelada</h2>
           <p>
             Compara la facturacion real del servicio contra el valor esperado en USD por tonelada producida.
-            El dolar se carga manualmente como divisa BNA.
+            Si cargas remitos IF, las toneladas salen de ese archivo; si no, usa los litros manuales.
           </p>
         </div>
         <div className="driver-summary">
           <span>{number(model.fazon.totalToneladas)} TN</span>
           <span>{money(model.fazon.totalTeorico)} esperado</span>
           <span>{money(model.fazon.totalFacturado)} facturado</span>
+          {model.fazon.remitos.length ? <span>{model.fazon.remitos.length} remitos</span> : null}
         </div>
       </div>
 
@@ -2143,6 +2321,7 @@ function FazonPanel({ model }: { model: CostModel }) {
                   <th>Esperado</th>
                   <th>Facturado</th>
                   <th>Diferencia</th>
+                  <th>Fuente</th>
                 </tr>
               </thead>
               <tbody>
@@ -2157,6 +2336,7 @@ function FazonPanel({ model }: { model: CostModel }) {
                     <td>{money(row.valorTeorico)}</td>
                     <td>{money(row.facturacion)}</td>
                     <td className={row.diferencia < 0 ? "negative" : undefined}>{money(row.diferencia)}</td>
+                    <td>{row.fuente}</td>
                   </tr>
                 ))}
               </tbody>
@@ -2177,11 +2357,46 @@ function FazonPanel({ model }: { model: CostModel }) {
               <span>Facturado neto de comisiones</span>
               <strong>{money(model.fazon.totalFacturado - model.fazon.totalComisiones)}</strong>
             </div>
+            <div>
+              <span>Lineas de envases</span>
+              <strong>{number(model.fazon.totalEnvases)}</strong>
+            </div>
           </div>
+          {model.fazon.remitos.length ? (
+            <div className="fazon-remitos">
+              <h3>Remitos usados para el calculo</h3>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Remito</th>
+                      <th>32,5 L</th>
+                      <th>32,5 TN</th>
+                      <th>Industrial TN</th>
+                      <th>Envases separados</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {model.fazon.remitos.map((row) => (
+                      <tr key={`${row.cliente}-${row.remito}`}>
+                        <td>{row.cliente}</td>
+                        <td><strong>{row.remito}</strong></td>
+                        <td>{number(row.litros325)}</td>
+                        <td>{number(row.toneladas325)}</td>
+                        <td>{number(row.toneladasIndustrial)}</td>
+                        <td>{row.envases.length ? row.envases.join(" / ") : "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </>
       ) : (
         <div className="empty-state">
-          Carga litros de fazon, precios USD/TN y dolar divisa BNA para ver el control del servicio.
+          Carga remitos IF o litros manuales, precios USD/TN y dolar divisa BNA para ver el control del servicio.
         </div>
       )}
     </section>

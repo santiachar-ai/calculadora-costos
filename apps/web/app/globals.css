@@ -878,7 +878,7 @@ th {
 
 .fazon-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -901,6 +901,15 @@ th {
 
 .fazon-summary strong {
   font-size: 1.05rem;
+}
+
+.fazon-remitos {
+  margin-top: 18px;
+}
+
+.fazon-remitos h3 {
+  font-size: 1rem;
+  margin: 0;
 }
 
 .executive-kpis {
