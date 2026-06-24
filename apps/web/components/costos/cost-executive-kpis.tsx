@@ -99,12 +99,12 @@ const PRODUCT_RULES = [
   { match: "OPTIPURE", producto: "OptiPure", factor: 1 },
 ];
 
-function stripAccents(value: string) {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+function stripAccents(value: unknown) {
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
 function key(value: unknown) {
-  return stripAccents(String(value ?? "").trim()).replace(/\s+/g, " ").toUpperCase();
+  return stripAccents(value).trim().replace(/\s+/g, " ").toUpperCase();
 }
 
 function text(value: unknown) {
