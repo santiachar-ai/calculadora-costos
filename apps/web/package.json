@@ -2,21 +2,24 @@
   "name": "web",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "npx next dev",
     "build": "npx next build",
     "start": "npx next start"
   },
   "dependencies": {
-    "next": "^16.1.6",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "xlsx": "^0.18.5"
+    "next": "16.2.9",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "xlsx": "0.18.5"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "typescript": "^5.8.2"
+    "@types/node": "22.14.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "typescript": "5.9.3"
   }
 }
