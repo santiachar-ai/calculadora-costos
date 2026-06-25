@@ -2665,19 +2665,40 @@ function FazonPanel({
   const hasFazon =
     model.fazon.rows.some((row) => row.litros || row.facturacion || row.valorTeorico) ||
     model.fazon.totalComisiones;
-  const purchaseTotalByType = (tipo: string) =>
-    sum(model.purchases, (row) => row.tipo === tipo, (row) => row.total);
+  const plantAutoTypes = [
+    "FABRIL_ELECTRICIDAD",
+    "FABRIL_MANTENIMIENTO",
+    "FABRIL_INSUMOS",
+    "FABRIL_SEGURIDAD",
+    "COSTO FABRIL",
+    "GAS",
+  ];
+  const purchaseTotalByTypes = (tipos: string[]) =>
+    sum(model.purchases, (row) => tipos.includes(row.tipo), (row) => row.total);
+  const otherPlantCost = sum(
+    model.purchases,
+    (row) =>
+      row.producto === "Planta" &&
+      !plantAutoTypes.includes(row.tipo) &&
+      !["INVERSION", "NO_COSTO", "RESULTADO_FINANCIERO"].includes(row.tipo),
+    (row) => row.total,
+  );
   const automaticFabrilRows = [
-    { label: "Energia / electricidad compras", value: purchaseTotalByType("FABRIL_ELECTRICIDAD") },
-    { label: "Mantenimiento compras", value: purchaseTotalByType("FABRIL_MANTENIMIENTO") },
-    { label: "Insumos fabriles compras", value: purchaseTotalByType("FABRIL_INSUMOS") },
-    { label: "Seguridad e higiene compras", value: purchaseTotalByType("FABRIL_SEGURIDAD") },
-    { label: "Otros costos fabriles compras", value: purchaseTotalByType("COSTO FABRIL") },
+    { label: "Energia / electricidad / gas compras", value: purchaseTotalByTypes(["FABRIL_ELECTRICIDAD", "GAS"]) },
+    { label: "Mantenimiento compras", value: purchaseTotalByTypes(["FABRIL_MANTENIMIENTO"]) },
+    { label: "Insumos fabriles compras", value: purchaseTotalByTypes(["FABRIL_INSUMOS"]) },
+    { label: "Seguridad e higiene compras", value: purchaseTotalByTypes(["FABRIL_SEGURIDAD"]) },
+    { label: "Otros costos fabriles compras", value: purchaseTotalByTypes(["COSTO FABRIL"]) },
+    { label: "Otras compras de planta", value: otherPlantCost },
   ];
   const automaticFabrilCost = automaticFabrilRows.reduce((total, row) => total + row.value, 0);
   const fazonLiters = model.fazon.rows.reduce((total, row) => total + row.litros, 0);
   const totalProductionLiters = model.kpis.litrosTotales + fazonLiters;
-  const fazonProductionShare = totalProductionLiters ? fazonLiters / totalProductionLiters : 0;
+  const fazonProductionShare = totalProductionLiters
+    ? fazonLiters / totalProductionLiters
+    : model.fazon.totalToneladas
+      ? 1
+      : 0;
   const manualProductionCostPool =
     params.sueldosProduccion +
     params.depreciacionFazonMensual +
