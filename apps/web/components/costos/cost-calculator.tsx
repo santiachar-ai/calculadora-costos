@@ -2713,6 +2713,34 @@ function FazonPanel({
   const marginTotal = netFazonRevenue - totalFazonCost;
   const marginPerTon = model.fazon.totalToneladas ? marginTotal / model.fazon.totalToneladas : 0;
   const marginPct = netFazonRevenue ? marginTotal / netFazonRevenue : 0;
+  const fazonRowsForAllocation = model.fazon.rows.filter((row) => row.litros || row.toneladas || row.facturacion);
+  const fazonAllocationBase = fazonRowsForAllocation.reduce(
+    (total, row) => total + (row.litros || (row.toneladas && row.densidad ? (row.toneladas * 1000) / row.densidad : 0)),
+    0,
+  );
+  const realCostByFazonProduct = fazonRowsForAllocation.map((row) => {
+    const allocationLiters = row.litros || (row.toneladas && row.densidad ? (row.toneladas * 1000) / row.densidad : 0);
+    const productShare = fazonAllocationBase ? allocationLiters / fazonAllocationBase : 1 / Math.max(fazonRowsForAllocation.length, 1);
+    const laborCost = params.sueldosProduccion * fazonProductionShare * productShare;
+    const automaticCost = automaticFabrilCost * fazonProductionShare * productShare;
+    const manualOtherCost = (manualProductionCostPool - params.sueldosProduccion) * fazonProductionShare * productShare;
+    const totalCost = laborCost + automaticCost + manualOtherCost;
+    const netRevenue = row.facturacion - row.comision;
+    const margin = netRevenue - totalCost;
+    return {
+      ...row,
+      allocationLiters,
+      share: productShare,
+      laborCost,
+      automaticCost,
+      manualOtherCost,
+      totalCost,
+      costPerTon: row.toneladas ? totalCost / row.toneladas : 0,
+      netRevenue,
+      margin,
+      marginPerTon: row.toneladas ? margin / row.toneladas : 0,
+    };
+  });
   const costRows = [
     { label: "Mano de obra produccion", value: params.sueldosProduccion, field: "sueldosProduccion" as const },
     { label: "Depreciacion maquinaria", value: params.depreciacionFazonMensual, field: "depreciacionFazonMensual" as const },
@@ -2858,6 +2886,40 @@ function FazonPanel({
                 <span>Margen real / TN</span>
                 <strong className={marginPerTon < 0 ? "negative" : undefined}>{money(marginPerTon)}</strong>
               </div>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Servicio</th>
+                    <th>Base L</th>
+                    <th>Participacion</th>
+                    <th>Mano de obra</th>
+                    <th>Compras fabriles</th>
+                    <th>Ajustes manuales</th>
+                    <th>Costo total</th>
+                    <th>Costo/TN</th>
+                    <th>Ingreso neto</th>
+                    <th>Margen/TN</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {realCostByFazonProduct.map((row) => (
+                    <tr key={row.producto}>
+                      <td><strong>{row.producto}</strong></td>
+                      <td>{number(row.allocationLiters)}</td>
+                      <td>{pct(row.share)}</td>
+                      <td>{money(row.laborCost)}</td>
+                      <td>{money(row.automaticCost)}</td>
+                      <td>{money(row.manualOtherCost)}</td>
+                      <td>{money(row.totalCost)}</td>
+                      <td>{money(row.costPerTon)}</td>
+                      <td>{money(row.netRevenue)}</td>
+                      <td className={row.marginPerTon < 0 ? "negative" : undefined}>{money(row.marginPerTon)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             <details className="remitos-disclosure">
               <summary>
