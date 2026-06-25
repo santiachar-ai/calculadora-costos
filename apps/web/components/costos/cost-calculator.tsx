@@ -659,9 +659,12 @@ function num(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   const raw = String(value ?? "").trim();
   if (!raw) return 0;
-  const normalized = raw.includes(",")
-    ? raw.replace(/\./g, "").replace(",", ".")
-    : raw.replace(/[^\d.-]/g, "");
+  const clean = raw.replace(/[^\d,.-]/g, "");
+  const normalized = clean.includes(",")
+    ? clean.replace(/\./g, "").replace(",", ".")
+    : (clean.match(/\./g)?.length ?? 0) > 1 || /^-?\d{1,3}(\.\d{3})+$/.test(clean)
+      ? clean.replace(/\./g, "")
+      : clean;
   const parsed = Number(normalized.replace(/[^\d.-]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
 }
@@ -2835,6 +2838,7 @@ function FazonPanel({
                 </p>
               </div>
               <div className="driver-summary">
+                <span>{money(params.sueldosProduccion)} mano de obra</span>
                 <span>{money(totalFazonCost)} asignado</span>
                 <span>{money(costPerTon)} / TN</span>
                 <span>{money(automaticFabrilCost)} compras</span>
@@ -2865,6 +2869,10 @@ function FazonPanel({
               <div>
                 <span>Participacion litros fazon</span>
                 <strong>{pct(fazonProductionShare)}</strong>
+              </div>
+              <div>
+                <span>Base litros fazon</span>
+                <strong>{number(fazonAllocationBase)}</strong>
               </div>
               <div>
                 <span>Pool costo mensual</span>
@@ -3180,7 +3188,8 @@ function AssumptionInput({
       <span>{label}</span>
       <div>
         <input
-          type="number"
+          type="text"
+          inputMode="decimal"
           value={Number.isFinite(value) ? value : 0}
           onChange={(event) => onChange(num(event.target.value))}
         />
