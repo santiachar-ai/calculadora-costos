@@ -2722,7 +2722,8 @@ function FazonPanel({
       marginPerTon: row.toneladas ? margin / row.toneladas : 0,
     };
   });
-  const depreciationFields = [
+  const directCostFields = [
+    { label: "Mano de obra produccion", value: params.sueldosProduccion, field: "sueldosProduccion" as const },
     { label: "Valor maquinaria USD", value: params.valorMaquinariaFazonUsd, field: "valorMaquinariaFazonUsd" as const },
     { label: "Vida util años", value: params.vidaUtilMaquinariaFazonAnios, field: "vidaUtilMaquinariaFazonAnios" as const },
   ];
@@ -2821,7 +2822,7 @@ function FazonPanel({
             </div>
 
             <div className="fazon-cost-grid">
-              {depreciationFields.map((row) => (
+              {directCostFields.map((row) => (
                 <AssumptionInput
                   key={row.field}
                   label={row.label}
