@@ -645,22 +645,68 @@ th {
 .upload-zone {
   border: 1px dashed rgba(15, 69, 114, 0.34);
   border-radius: var(--radius-md);
-  padding: 18px;
+  padding: 14px;
   background: rgba(255, 255, 255, 0.68);
   cursor: pointer;
   display: grid;
-  gap: 8px;
+  gap: 5px;
 }
 
 .upload-stack {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.upload-stack .config-advanced {
+  grid-column: 1 / -1;
 }
 
 .config-transfer {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.config-advanced {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.54);
+}
+
+.config-advanced summary,
+.params-disclosure summary {
+  cursor: pointer;
+  font-weight: 800;
+  list-style: none;
+}
+
+.config-advanced summary::-webkit-details-marker,
+.params-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.config-advanced summary {
+  color: var(--muted);
+  padding: 13px 16px;
+}
+
+.config-advanced summary::after,
+.params-disclosure summary::after {
+  content: "+";
+  float: right;
+}
+
+.config-advanced[open] summary::after,
+.params-disclosure[open] summary::after {
+  content: "-";
+}
+
+.config-advanced-body {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
 }
 
 .import-config-button {
@@ -716,11 +762,13 @@ th {
 
 .upload-zone strong {
   color: var(--accent);
+  font-size: 0.94rem;
+  line-height: 1.15;
   overflow-wrap: anywhere;
 }
 
 .upload-zone input {
-  width: 100%;
+  display: none;
 }
 
 .assumption-grid,
@@ -736,6 +784,45 @@ th {
 .config-panel {
   display: grid;
   gap: 18px;
+}
+
+.params-disclosure {
+  padding: 0;
+}
+
+.params-disclosure summary {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 18px 20px;
+}
+
+.params-disclosure summary h2,
+.params-disclosure summary p {
+  margin: 0;
+}
+
+.params-disclosure summary p {
+  color: var(--muted);
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.params-disclosure summary > span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.84rem;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
+.params-disclosure-body {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 18px;
+  padding: 18px;
 }
 
 .cost-subnav {
@@ -860,6 +947,16 @@ th {
 .costs-content {
   margin-top: 0;
   grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
+}
+
+.cost-section {
+  display: grid;
+  gap: 14px;
+}
+
+.cost-control-stack {
+  display: grid;
+  gap: 14px;
 }
 
 .secondary-kpis .cost-kpi strong {
@@ -1619,6 +1716,7 @@ th {
   .content-grid,
   .form-grid,
   .costs-header,
+  .upload-stack,
   .assumption-grid,
   .kpi-grid,
   .params-grid,

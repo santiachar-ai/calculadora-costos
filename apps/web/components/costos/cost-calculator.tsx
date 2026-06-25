@@ -2176,59 +2176,64 @@ export function CostCalculator() {
             <strong>{remitosFileName || "Seleccionar remitos"}</strong>
             <input accept=".xlsx,.xls" type="file" onChange={(event) => handleRemitos(event.target.files?.[0])} />
           </label>
-          <div className="config-transfer">
-            <button className="button-secondary" type="button" onClick={exportConfiguration}>
-              Generar configuracion
-            </button>
-            <label className="button-secondary import-config-button">
-              Importar configuracion
-              <input
-                accept=".json,application/json"
-                type="file"
-                onChange={(event) => importConfiguration(event.target.files?.[0])}
-              />
-            </label>
-          </div>
-          {configurationExportFile ? (
-            <div className="config-export-ready">
-              <div className="export-ready">
-                <span>{configurationExportFile.fileName}</span>
-                <a className="button" download={configurationExportFile.fileName} href={configurationExportFile.url}>
-                  Descargar configuracion
-                </a>
-                <button className="button-secondary" type="button" onClick={copyConfiguration}>
-                  Copiar configuracion
+          <details className="config-advanced">
+            <summary>Configuracion avanzada</summary>
+            <div className="config-advanced-body">
+              <div className="config-transfer">
+                <button className="button-secondary" type="button" onClick={exportConfiguration}>
+                  Generar configuracion
+                </button>
+                <label className="button-secondary import-config-button">
+                  Importar configuracion
+                  <input
+                    accept=".json,application/json"
+                    type="file"
+                    onChange={(event) => importConfiguration(event.target.files?.[0])}
+                  />
+                </label>
+              </div>
+              {configurationExportFile ? (
+                <div className="config-export-ready">
+                  <div className="export-ready">
+                    <span>{configurationExportFile.fileName}</span>
+                    <a className="button" download={configurationExportFile.fileName} href={configurationExportFile.url}>
+                      Descargar configuracion
+                    </a>
+                    <button className="button-secondary" type="button" onClick={copyConfiguration}>
+                      Copiar configuracion
+                    </button>
+                  </div>
+                  <textarea
+                    aria-label="Configuracion exportada"
+                    className="config-textarea"
+                    readOnly
+                    ref={configurationExportTextRef}
+                    value={configurationExportFile.content}
+                  />
+                </div>
+              ) : null}
+              <div className="config-import-text">
+                <textarea
+                  aria-label="Pegar configuracion"
+                  className="config-textarea"
+                  onChange={(event) => setConfigurationImportText(event.target.value)}
+                  placeholder="Pegar configuracion JSON"
+                  value={configurationImportText}
+                />
+                <button
+                  className="button-secondary"
+                  disabled={!configurationImportText.trim()}
+                  type="button"
+                  onClick={importConfigurationFromText}
+                >
+                  Importar texto
                 </button>
               </div>
-              <textarea
-                aria-label="Configuracion exportada"
-                className="config-textarea"
-                readOnly
-                ref={configurationExportTextRef}
-                value={configurationExportFile.content}
-              />
+              {configurationTransferMessage ? (
+                <p className="config-transfer-message">{configurationTransferMessage}</p>
+              ) : null}
             </div>
-          ) : null}
-          <div className="config-import-text">
-            <textarea
-              aria-label="Pegar configuracion"
-              className="config-textarea"
-              onChange={(event) => setConfigurationImportText(event.target.value)}
-              placeholder="Pegar configuracion JSON"
-              value={configurationImportText}
-            />
-            <button
-              className="button-secondary"
-              disabled={!configurationImportText.trim()}
-              type="button"
-              onClick={importConfigurationFromText}
-            >
-              Importar texto
-            </button>
-          </div>
-          {configurationTransferMessage ? (
-            <p className="config-transfer-message">{configurationTransferMessage}</p>
-          ) : null}
+          </details>
         </div>
       </section>
 
@@ -2259,12 +2264,20 @@ export function CostCalculator() {
       </nav>
 
       {activeView === "calculo" ? (
-        <section className="panel config-panel">
-          <div className="config-head">
+        <details className="panel config-panel params-disclosure">
+          <summary>
             <div>
               <h2>Parametros editables</h2>
               <p>Se guardan localmente en este navegador.</p>
             </div>
+            <span>Editar supuestos</span>
+          </summary>
+          <div className="params-disclosure-body">
+            <div className="config-head">
+              <div>
+                <h3>Supuestos de calculo</h3>
+                <p>Valores manuales que ajustan costos, densidades e imputaciones.</p>
+              </div>
             <button className="button-secondary" type="button" onClick={() => setParams(DEFAULT_PARAMS)}>
               Restaurar valores
             </button>
@@ -2295,7 +2308,8 @@ export function CostCalculator() {
             <AssumptionInput label="Fazon 32,5 L" value={params.litrosFazon325} onChange={(value) => updateParam("litrosFazon325", value)} />
             <AssumptionInput label="Fazon ind. L" value={params.litrosFazonIndustrial} onChange={(value) => updateParam("litrosFazonIndustrial", value)} />
           </div>
-        </section>
+          </div>
+        </details>
       ) : null}
 
       {activeView === "maestro" ? (
@@ -2323,10 +2337,49 @@ export function CostCalculator() {
             <Kpi label="Facturacion analizada" value={money(model.kpis.facturacionAnalizada)} />
           </section>
 
-          <section className="content-grid costs-content">
+          <section className="cost-section">
+            <div className="section-head">
+              <div>
+                <p className="eyebrow">Control de datos</p>
+                <h2>Archivos importados y fazon IF</h2>
+                <p>Validacion de carga, lectura de remitos y comparacion economica del servicio.</p>
+              </div>
+            </div>
+            <div className="cost-control-stack">
+            <article className="panel">
+              <h2>Control de importacion</h2>
+              <div className="trace-list">
+                <div className="trace-item">
+                  <strong>{model.review.compras} compras leidas</strong>
+                  <span>{model.review.comprasRevisar} quedaron para revisar reglas.</span>
+                </div>
+                <div className="trace-item">
+                  <strong>{model.review.ventas} ventas leidas</strong>
+                  <span>{model.review.ventasRevisar} articulos no matchearon con reglas de venta.</span>
+                </div>
+                <div className="trace-item">
+                  <strong>{number(model.kpis.litrosTotales)} litros analizados</strong>
+                  <span>Margen de equilibrio: {money(model.kpis.margenEquilibrioLitro)} por litro.</span>
+                </div>
+              </div>
+            </article>
+
+          <RemitosControlPanel model={model} remitosFileName={remitosFileName} />
+
+          <FazonPanel model={model} />
+            </div>
+          </section>
+
+          <section className="cost-section">
+            <div className="section-head">
+              <div>
+                <p className="eyebrow">Rentabilidad</p>
+                <h2>Margen por producto</h2>
+                <p>Precio, costo variable y contribucion calculados desde los archivos importados.</p>
+              </div>
+            </div>
+
             <article className="table-card">
-              <h2>Margen por producto</h2>
-              <p>Precio, costo variable y contribucion calculados desde los archivos importados.</p>
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -2355,37 +2408,6 @@ export function CostCalculator() {
               </div>
             </article>
 
-            <article className="panel">
-              <h2>Control de importacion</h2>
-              <div className="trace-list">
-                <div className="trace-item">
-                  <strong>{model.review.compras} compras leidas</strong>
-                  <span>{model.review.comprasRevisar} quedaron para revisar reglas.</span>
-                </div>
-                <div className="trace-item">
-                  <strong>{model.review.ventas} ventas leidas</strong>
-                  <span>{model.review.ventasRevisar} articulos no matchearon con reglas de venta.</span>
-                </div>
-                <div className="trace-item">
-                  <strong>{number(model.kpis.litrosTotales)} litros analizados</strong>
-                  <span>Margen de equilibrio: {money(model.kpis.margenEquilibrioLitro)} por litro.</span>
-                </div>
-              </div>
-            </article>
-          </section>
-
-          <PendingClassification
-            model={model}
-            onSavePurchase={savePurchaseRule}
-            onSaveSale={saveSalesRule}
-          />
-
-          <RemitosControlPanel model={model} remitosFileName={remitosFileName} />
-
-          <FazonPanel model={model} />
-
-          <CostDriversPanel model={model} />
-
           <section className="kpi-grid secondary-kpis">
             <Kpi label="Logistica OptiBlue x L" value={money(model.kpis.logisticaOptiblueLitro)} />
             <Kpi label="Costo fabril x L" value={money(model.kpis.costoFabrilLitro)} />
@@ -2394,6 +2416,15 @@ export function CostCalculator() {
             <Kpi label="Precintos x L" value={money(model.kpis.precintosPorLitro)} />
             <Kpi label="Facturacion cubierta" value={pct(model.kpis.facturacionTotal ? model.kpis.facturacionAnalizada / model.kpis.facturacionTotal : 0)} />
           </section>
+          </section>
+
+          <CostDriversPanel model={model} />
+
+          <PendingClassification
+            model={model}
+            onSavePurchase={savePurchaseRule}
+            onSaveSale={saveSalesRule}
+          />
         </>
       ) : (
         <AllocationAudit
