@@ -105,6 +105,7 @@ type FazonResult = {
 type FazonRemitoSummary = {
   cliente: string;
   remito: string;
+  articulos: string[];
   litros325: number;
   toneladas325: number;
   toneladasIndustrial: number;
@@ -1104,6 +1105,7 @@ function summarizeFazonRemitos(workbook: XLSX.WorkBook | null, params: CostParam
     const current = grouped.get(`${key(cliente)}|${key(remito)}`) ?? {
       cliente,
       remito,
+      articulos: [],
       litros325: 0,
       toneladas325: 0,
       toneladasIndustrial: 0,
@@ -1113,6 +1115,9 @@ function summarizeFazonRemitos(workbook: XLSX.WorkBook | null, params: CostParam
     const unidad = text(row.Unidad);
     const articulo = text(row.Articulo_ERP);
     const tipo = text(row.Tipo_Remito);
+    if (articulo && !current.articulos.some((item) => key(item) === key(articulo))) {
+      current.articulos.push(articulo);
+    }
 
     if (tipo === "FAZON_325") {
       current.litros325 += cantidad;
@@ -2461,8 +2466,16 @@ export function CostCalculator() {
 
 function RemitosControlPanel({ model, remitosFileName }: { model: CostModel; remitosFileName: string }) {
   const remitos = model.fazon.remitos;
+  const [search, setSearch] = useState("");
   if (!remitosFileName && !remitos.length) return null;
 
+  const normalizedSearch = key(search);
+  const visibleRemitos = remitos.filter((row) =>
+    !normalizedSearch ||
+    [row.cliente, row.remito, ...row.articulos, ...row.envases].some((value) =>
+      key(value).includes(normalizedSearch),
+    ),
+  );
   const totalLitros325 = remitos.reduce((total, row) => total + row.litros325, 0);
   const totalTon325 = remitos.reduce((total, row) => total + row.toneladas325, 0);
   const totalIndustrial = remitos.reduce((total, row) => total + row.toneladasIndustrial, 0);
@@ -2556,43 +2569,76 @@ function RemitosControlPanel({ model, remitosFileName }: { model: CostModel; rem
         </div>
       </div>
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>Remito</th>
-              <th>32,5 L</th>
-              <th>32,5 TN</th>
-              <th>Industrial TN</th>
-              <th>Control</th>
-            </tr>
-          </thead>
-          <tbody>
-            {remitos.map((row) => {
-              const hasProduct = row.litros325 || row.toneladasIndustrial;
-              return (
-                <tr key={`${row.cliente}-${row.remito}`}>
-                  <td>{row.cliente}</td>
-                  <td><strong>{row.remito}</strong></td>
-                  <td>{number(row.litros325)}</td>
-                  <td>{number(row.toneladas325, 3)}</td>
-                  <td>{number(row.toneladasIndustrial, 3)}</td>
-                  <td>
-                    {hasProduct ? "Producto leido" : "Solo envases"}
-                    {row.envases.length ? ` / ${number(row.envases.length)} envases` : ""}
-                  </td>
+      <details className="remitos-disclosure">
+        <summary>
+          <span>Ver detalle de remitos</span>
+          <strong>{number(remitos.length)} registros</strong>
+        </summary>
+        <div className="remitos-detail-tools">
+          <label className="master-search">
+            <span>Buscar</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Remito, cliente o articulo"
+            />
+          </label>
+          <span>{number(visibleRemitos.length)} coincidencias</span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Remito</th>
+                <th>Articulos</th>
+                <th>32,5 L</th>
+                <th>32,5 TN</th>
+                <th>Industrial TN</th>
+                <th>Control</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRemitos.map((row) => {
+                const hasProduct = row.litros325 || row.toneladasIndustrial;
+                return (
+                  <tr key={`${row.cliente}-${row.remito}`}>
+                    <td>{row.cliente}</td>
+                    <td><strong>{row.remito}</strong></td>
+                    <td>{row.articulos.length ? row.articulos.join(" / ") : "-"}</td>
+                    <td>{number(row.litros325)}</td>
+                    <td>{number(row.toneladas325, 3)}</td>
+                    <td>{number(row.toneladasIndustrial, 3)}</td>
+                    <td>
+                      {hasProduct ? "Producto leido" : "Solo envases"}
+                      {row.envases.length ? ` / ${number(row.envases.length)} envases` : ""}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!visibleRemitos.length ? (
+                <tr>
+                  <td colSpan={7}>No hay remitos que coincidan con el filtro.</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </section>
   );
 }
 
 function FazonPanel({ model }: { model: CostModel }) {
+  const [remitosSearch, setRemitosSearch] = useState("");
+  const normalizedSearch = key(remitosSearch);
+  const visibleRemitos = model.fazon.remitos.filter((row) =>
+    !normalizedSearch ||
+    [row.cliente, row.remito, ...row.articulos, ...row.envases].some((value) =>
+      key(value).includes(normalizedSearch),
+    ),
+  );
   const hasFazon =
     model.fazon.rows.some((row) => row.litros || row.facturacion || row.valorTeorico) ||
     model.fazon.totalComisiones;
@@ -2673,14 +2719,30 @@ function FazonPanel({ model }: { model: CostModel }) {
             </div>
           </div>
           {model.fazon.remitos.length ? (
-            <div className="fazon-remitos">
-              <h3>Remitos usados para el calculo</h3>
+            <details className="fazon-remitos remitos-disclosure">
+              <summary>
+                <span>Remitos usados para el calculo</span>
+                <strong>{number(model.fazon.remitos.length)} registros</strong>
+              </summary>
+              <div className="remitos-detail-tools">
+                <label className="master-search">
+                  <span>Buscar</span>
+                  <input
+                    type="search"
+                    value={remitosSearch}
+                    onChange={(event) => setRemitosSearch(event.target.value)}
+                    placeholder="Remito, cliente o articulo"
+                  />
+                </label>
+                <span>{number(visibleRemitos.length)} coincidencias</span>
+              </div>
               <div className="table-wrap">
                 <table>
                   <thead>
                     <tr>
                       <th>Cliente</th>
                       <th>Remito</th>
+                      <th>Articulos</th>
                       <th>32,5 L</th>
                       <th>32,5 TN</th>
                       <th>Industrial TN</th>
@@ -2688,20 +2750,26 @@ function FazonPanel({ model }: { model: CostModel }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {model.fazon.remitos.map((row) => (
+                    {visibleRemitos.map((row) => (
                       <tr key={`${row.cliente}-${row.remito}`}>
                         <td>{row.cliente}</td>
                         <td><strong>{row.remito}</strong></td>
+                        <td>{row.articulos.length ? row.articulos.join(" / ") : "-"}</td>
                         <td>{number(row.litros325)}</td>
                         <td>{number(row.toneladas325)}</td>
                         <td>{number(row.toneladasIndustrial)}</td>
                         <td>{row.envases.length ? row.envases.join(" / ") : "-"}</td>
                       </tr>
                     ))}
+                    {!visibleRemitos.length ? (
+                      <tr>
+                        <td colSpan={7}>No hay remitos que coincidan con el filtro.</td>
+                      </tr>
+                    ) : null}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </details>
           ) : null}
         </>
       ) : (

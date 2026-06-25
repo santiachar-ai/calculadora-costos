@@ -1009,6 +1009,68 @@ th {
   margin: 0;
 }
 
+.remitos-disclosure {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(248, 252, 255, 0.7);
+  overflow: hidden;
+}
+
+.remitos-disclosure summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  list-style: none;
+  padding: 14px 16px;
+}
+
+.remitos-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.remitos-disclosure summary::after {
+  color: var(--muted);
+  content: "+";
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.remitos-disclosure[open] summary::after {
+  content: "-";
+}
+
+.remitos-disclosure summary span {
+  font-weight: 800;
+}
+
+.remitos-disclosure summary strong {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.remitos-detail-tools {
+  align-items: end;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.remitos-detail-tools .master-search {
+  max-width: 420px;
+  width: 100%;
+}
+
+.remitos-detail-tools > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .remitos-control-card {
   display: grid;
   gap: 18px;
@@ -1746,6 +1808,15 @@ th {
   .driver-summary {
     justify-content: flex-start;
     max-width: none;
+  }
+
+  .remitos-detail-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .remitos-detail-tools > span {
+    white-space: normal;
   }
 
   .lever-row {
