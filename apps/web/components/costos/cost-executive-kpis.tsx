@@ -55,6 +55,14 @@ type ExactModelSnapshot = {
   files?: {
     purchases?: string;
     sales?: string;
+    remitos?: string;
+  };
+  fazon?: {
+    totalToneladas: number;
+    totalTeorico: number;
+    totalFacturado: number;
+    totalDiferencia: number;
+    remitos?: unknown[];
   };
   kpis: {
     resultadoNetoLitro: number;
@@ -482,6 +490,7 @@ export function CostExecutiveKpis() {
         files: {
           sales: exactSnapshot.files?.sales || files.sales?.fileName || "",
           purchases: exactSnapshot.files?.purchases || files.purchases?.fileName || "",
+          remitos: exactSnapshot.files?.remitos || "",
         },
         kpis: {
           topCost: exactSnapshot.insights.topGlobalDriver,
@@ -498,6 +507,7 @@ export function CostExecutiveKpis() {
           levers: exactSnapshot.insights.topLevers,
           products: exactSnapshot.insights.risks,
           totalReduciblePerLiter: exactSnapshot.insights.totalReduciblePerLiter,
+          fazon: exactSnapshot.fazon ?? null,
         },
       };
     }
@@ -507,6 +517,7 @@ export function CostExecutiveKpis() {
       files: {
         sales: files.sales?.fileName || "",
         purchases: files.purchases?.fileName || "",
+        remitos: "",
       },
       kpis: {
         topCost: fallback.topCost,
@@ -518,6 +529,7 @@ export function CostExecutiveKpis() {
         levers: fallback.levers,
         products: fallback.products,
         totalReduciblePerLiter: 0,
+        fazon: null,
       },
     };
   }, [exactSnapshot, files, snapshot]);
@@ -539,6 +551,7 @@ export function CostExecutiveKpis() {
         <div className={styles.fileSummary}>
           {data.files.sales ? <span>{data.files.sales}</span> : null}
           {data.files.purchases ? <span>{data.files.purchases}</span> : null}
+          {data.files.remitos ? <span>{data.files.remitos}</span> : null}
         </div>
       </div>
 
@@ -573,6 +586,15 @@ export function CostExecutiveKpis() {
           </strong>
           <p>
             Precio {money(data.kpis.precioPromedio)} / L vs costo calculado {money(data.kpis.costoPromedio)} / L.
+          </p>
+        </article>
+        <article className={styles.insightCard}>
+          <span>Fazon IF</span>
+          <strong>{data.kpis.fazon ? `${number(data.kpis.fazon.totalToneladas)} TN` : "Sin remitos"}</strong>
+          <p>
+            {data.kpis.fazon
+              ? `${money(data.kpis.fazon.totalTeorico)} esperado, ${money(data.kpis.fazon.totalFacturado)} facturado.`
+              : "Carga remitos IF para ver toneladas producidas."}
           </p>
         </article>
       </div>

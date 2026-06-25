@@ -1163,9 +1163,23 @@ function buildCostModel(
   const remitosSummary = summarizeFazonRemitos(remitosWorkbook, params);
   if (!purchaseRows.length && !saleRows.length && !remitosSummary.remitos.length) return null;
 
+  const hasRemitosFazon325 = remitosSummary.litros325 > 0;
+  const hasRemitosFazonIndustrial = remitosSummary.toneladasIndustrial > 0;
+  const litrosFazonIndustrialFromRemitos =
+    hasRemitosFazonIndustrial && params.densidadIndustrial > 0
+      ? (remitosSummary.toneladasIndustrial * 1000) / params.densidadIndustrial
+      : 0;
+  const effectiveParams: CostParams = {
+    ...params,
+    litrosFazon325: hasRemitosFazon325 ? remitosSummary.litros325 : params.litrosFazon325,
+    litrosFazonIndustrial: hasRemitosFazonIndustrial
+      ? litrosFazonIndustrialFromRemitos
+      : params.litrosFazonIndustrial,
+  };
+
   const classifyPurchase = purchaseLookup(purchaseRules);
   const classifySale = salesLookup(salesRules);
-  const production = productionMap(params);
+  const production = productionMap(effectiveParams);
 
   const purchases = purchaseRows
     .map((row) => {
@@ -1345,20 +1359,14 @@ function buildCostModel(
     purchaseTotal("COMISION_IF", "IF Fazon") +
     purchaseTotal("COMPENSACION_IF", "IF Fazon") +
     purchaseTotal("COMPENSACION_IF", "IF Compensacion");
-  const hasRemitosFazon325 = remitosSummary.litros325 > 0;
-  const hasRemitosFazonIndustrial = remitosSummary.toneladasIndustrial > 0;
-  const litrosFazon325 = hasRemitosFazon325 ? remitosSummary.litros325 : params.litrosFazon325;
+  const litrosFazon325 = effectiveParams.litrosFazon325;
   const toneladasFazon325 = hasRemitosFazon325
     ? remitosSummary.toneladas325
-    : (params.litrosFazon325 * params.densidadOptiblue) / 1000;
+    : (effectiveParams.litrosFazon325 * params.densidadOptiblue) / 1000;
   const toneladasFazonIndustrial = hasRemitosFazonIndustrial
     ? remitosSummary.toneladasIndustrial
-    : (params.litrosFazonIndustrial * params.densidadIndustrial) / 1000;
-  const litrosFazonIndustrial = hasRemitosFazonIndustrial
-    ? params.densidadIndustrial > 0
-      ? (remitosSummary.toneladasIndustrial * 1000) / params.densidadIndustrial
-      : 0
-    : params.litrosFazonIndustrial;
+    : (effectiveParams.litrosFazonIndustrial * params.densidadIndustrial) / 1000;
+  const litrosFazonIndustrial = effectiveParams.litrosFazonIndustrial;
   const fazonRows: FazonResult[] = [
     {
       producto: "IF_FAZON_325",
