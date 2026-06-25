@@ -2687,7 +2687,6 @@ function FazonPanel({
     : model.fazon.totalToneladas
       ? 1
       : 0;
-  const manualProductionCostPool = params.sueldosProduccion + depreciationMonthly;
   const totalProductionCostPool = costPoolRows.reduce((total, row) => total + row.value, 0);
   const totalFazonCost = totalProductionCostPool * fazonProductionShare;
   const costPerTon = model.fazon.totalToneladas ? totalFazonCost / model.fazon.totalToneladas : 0;
@@ -2725,7 +2724,7 @@ function FazonPanel({
   });
   const depreciationFields = [
     { label: "Valor maquinaria USD", value: params.valorMaquinariaFazonUsd, field: "valorMaquinariaFazonUsd" as const },
-    { label: "Vida util anios", value: params.vidaUtilMaquinariaFazonAnios, field: "vidaUtilMaquinariaFazonAnios" as const },
+    { label: "Vida util años", value: params.vidaUtilMaquinariaFazonAnios, field: "vidaUtilMaquinariaFazonAnios" as const },
   ];
 
   return (
@@ -2838,8 +2837,12 @@ function FazonPanel({
                 <strong>{money(purchasesFabrilCost)}</strong>
               </div>
               <div>
-                <span>Mano de obra + depreciacion</span>
-                <strong>{money(manualProductionCostPool)}</strong>
+                <span>Mano de obra mensual</span>
+                <strong>{money(params.sueldosProduccion)}</strong>
+              </div>
+              <div>
+                <span>Depreciacion mensual</span>
+                <strong>{money(depreciationMonthly)}</strong>
               </div>
               <div>
                 <span>Participacion litros fazon</span>
