@@ -2331,7 +2331,7 @@ export function CostCalculator() {
             onSaveSale={saveSalesRule}
           />
 
-          <RemitosControlPanel model={model} />
+          <RemitosControlPanel model={model} remitosFileName={remitosFileName} />
 
           <FazonPanel model={model} />
 
@@ -2357,9 +2357,9 @@ export function CostCalculator() {
   );
 }
 
-function RemitosControlPanel({ model }: { model: CostModel }) {
+function RemitosControlPanel({ model, remitosFileName }: { model: CostModel; remitosFileName: string }) {
   const remitos = model.fazon.remitos;
-  if (!remitos.length) return null;
+  if (!remitosFileName && !remitos.length) return null;
 
   const totalLitros325 = remitos.reduce((total, row) => total + row.litros325, 0);
   const totalTon325 = remitos.reduce((total, row) => total + row.toneladas325, 0);
@@ -2391,7 +2391,7 @@ function RemitosControlPanel({ model }: { model: CostModel }) {
       <div className="section-head">
         <div>
           <p className="eyebrow">Control de remitos</p>
-          <h2>Lectura del archivo de movimientos</h2>
+          <h2>Control de remitos cargados</h2>
           <p>
             Este panel muestra lo que la calculadora extrajo del Excel antes de usarlo como base de
             toneladas para el fazon.
@@ -2403,6 +2403,13 @@ function RemitosControlPanel({ model }: { model: CostModel }) {
           <span>{number(totalTon325 + totalIndustrial)} TN</span>
         </div>
       </div>
+
+      {!remitos.length ? (
+        <div className="message warning">
+          <strong>{remitosFileName}</strong> esta cargado, pero todavia no se reconocieron remitos de fazon.
+          Revisa que sea el reporte de movimientos por cliente y que tenga columnas de articulo, sale y unidad.
+        </div>
+      ) : null}
 
       <div className="remito-control-grid">
         <article>
