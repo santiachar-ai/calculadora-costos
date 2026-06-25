@@ -1000,6 +1000,26 @@ th {
   font-size: 1.05rem;
 }
 
+.fazon-real-cost {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(248, 252, 255, 0.66);
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.fazon-real-cost h3 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.fazon-cost-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .fazon-remitos {
   margin-top: 18px;
 }
@@ -1794,6 +1814,7 @@ th {
   .driver-grid,
   .driver-metrics,
   .fazon-summary,
+  .fazon-cost-grid,
   .remito-control-grid,
   .remito-client-list div,
   .master-add-row.purchase,

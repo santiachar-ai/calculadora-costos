@@ -49,6 +49,11 @@ type CostParams = {
   comisionPct: number;
   sueldosAdmin: number;
   sueldosProduccion: number;
+  depreciacionFazonMensual: number;
+  energiaAguaFazonMensual: number;
+  mantenimientoFazonMensual: number;
+  insumosFazonMensual: number;
+  otrosCostosFazonMensual: number;
   litrosOptiblueIbc: number;
   litrosIndustrial: number;
   litrosFazon325: number;
@@ -436,6 +441,11 @@ const DEFAULT_PARAMS: CostParams = {
   comisionPct: 0,
   sueldosAdmin: 10000000,
   sueldosProduccion: 0,
+  depreciacionFazonMensual: 0,
+  energiaAguaFazonMensual: 0,
+  mantenimientoFazonMensual: 0,
+  insumosFazonMensual: 0,
+  otrosCostosFazonMensual: 0,
   litrosOptiblueIbc: 0,
   litrosIndustrial: 0,
   litrosFazon325: 0,
@@ -2322,6 +2332,11 @@ export function CostCalculator() {
             <AssumptionInput label="Combustible OB" suffix="%" value={params.pctCombustibleOptiblue * 100} onChange={(value) => updateParam("pctCombustibleOptiblue", value / 100)} />
             <AssumptionInput label="Sueldos admin" value={params.sueldosAdmin} onChange={(value) => updateParam("sueldosAdmin", value)} />
             <AssumptionInput label="Sueldos prod." value={params.sueldosProduccion} onChange={(value) => updateParam("sueldosProduccion", value)} />
+            <AssumptionInput label="Deprec. fazon" value={params.depreciacionFazonMensual} onChange={(value) => updateParam("depreciacionFazonMensual", value)} />
+            <AssumptionInput label="Energia/agua fazon" value={params.energiaAguaFazonMensual} onChange={(value) => updateParam("energiaAguaFazonMensual", value)} />
+            <AssumptionInput label="Mant. fazon" value={params.mantenimientoFazonMensual} onChange={(value) => updateParam("mantenimientoFazonMensual", value)} />
+            <AssumptionInput label="Insumos fazon" value={params.insumosFazonMensual} onChange={(value) => updateParam("insumosFazonMensual", value)} />
+            <AssumptionInput label="Otros fazon" value={params.otrosCostosFazonMensual} onChange={(value) => updateParam("otrosCostosFazonMensual", value)} />
             <AssumptionInput label="Dolar divisa BNA" value={params.dolarDivisaBna} onChange={(value) => updateParam("dolarDivisaBna", value)} />
             <AssumptionInput label="Fazon 32,5 USD/TN" value={params.precioFazon325UsdTon} onChange={(value) => updateParam("precioFazon325UsdTon", value)} />
             <AssumptionInput label="Fazon ind. USD/TN" value={params.precioFazonIndustrialUsdTon} onChange={(value) => updateParam("precioFazonIndustrialUsdTon", value)} />
@@ -2379,7 +2394,7 @@ export function CostCalculator() {
 
           <RemitosControlPanel model={model} remitosFileName={remitosFileName} />
 
-          <FazonPanel model={model} />
+          <FazonPanel model={model} params={params} onParamChange={updateParam} />
             </div>
           </section>
 
@@ -2630,7 +2645,15 @@ function RemitosControlPanel({ model, remitosFileName }: { model: CostModel; rem
   );
 }
 
-function FazonPanel({ model }: { model: CostModel }) {
+function FazonPanel({
+  model,
+  params,
+  onParamChange,
+}: {
+  model: CostModel;
+  params: CostParams;
+  onParamChange: (name: keyof CostParams, value: number) => void;
+}) {
   const [remitosSearch, setRemitosSearch] = useState("");
   const normalizedSearch = key(remitosSearch);
   const visibleRemitos = model.fazon.remitos.filter((row) =>
@@ -2642,6 +2665,30 @@ function FazonPanel({ model }: { model: CostModel }) {
   const hasFazon =
     model.fazon.rows.some((row) => row.litros || row.facturacion || row.valorTeorico) ||
     model.fazon.totalComisiones;
+  const fazonLiters = model.fazon.rows.reduce((total, row) => total + row.litros, 0);
+  const totalProductionLiters = model.kpis.litrosTotales + fazonLiters;
+  const fazonProductionShare = totalProductionLiters ? fazonLiters / totalProductionLiters : 0;
+  const totalProductionCostPool =
+    params.sueldosProduccion +
+    params.depreciacionFazonMensual +
+    params.energiaAguaFazonMensual +
+    params.mantenimientoFazonMensual +
+    params.insumosFazonMensual +
+    params.otrosCostosFazonMensual;
+  const totalFazonCost = totalProductionCostPool * fazonProductionShare;
+  const costPerTon = model.fazon.totalToneladas ? totalFazonCost / model.fazon.totalToneladas : 0;
+  const netFazonRevenue = model.fazon.totalFacturado - model.fazon.totalComisiones;
+  const marginTotal = netFazonRevenue - totalFazonCost;
+  const marginPerTon = model.fazon.totalToneladas ? marginTotal / model.fazon.totalToneladas : 0;
+  const marginPct = netFazonRevenue ? marginTotal / netFazonRevenue : 0;
+  const costRows = [
+    { label: "Mano de obra produccion", value: params.sueldosProduccion, field: "sueldosProduccion" as const },
+    { label: "Depreciacion maquinaria", value: params.depreciacionFazonMensual, field: "depreciacionFazonMensual" as const },
+    { label: "Energia electrica / agua", value: params.energiaAguaFazonMensual, field: "energiaAguaFazonMensual" as const },
+    { label: "Mantenimiento maquinaria", value: params.mantenimientoFazonMensual, field: "mantenimientoFazonMensual" as const },
+    { label: "Filtros e insumos", value: params.insumosFazonMensual, field: "insumosFazonMensual" as const },
+    { label: "Otros costos productivos", value: params.otrosCostosFazonMensual, field: "otrosCostosFazonMensual" as const },
+  ];
 
   return (
     <section className="table-card fazon-card">
@@ -2716,6 +2763,60 @@ function FazonPanel({ model }: { model: CostModel }) {
             <div>
               <span>Lineas de envases</span>
               <strong>{number(model.fazon.totalEnvases)}</strong>
+            </div>
+          </div>
+          <div className="fazon-real-cost">
+            <div className="section-head">
+              <div>
+                <p className="eyebrow">Costo interno</p>
+                <h3>Costo real estimado de fazon IF</h3>
+                <p>
+                  Carga costos mensuales productivos para ver costo por tonelada y margen real contra lo facturado.
+                </p>
+              </div>
+              <div className="driver-summary">
+                <span>{money(totalFazonCost)} asignado</span>
+                <span>{money(costPerTon)} / TN</span>
+                <span>{pct(marginPct)} margen</span>
+              </div>
+            </div>
+
+            <div className="fazon-cost-grid">
+              {costRows.map((row) => (
+                <AssumptionInput
+                  key={row.field}
+                  label={row.label}
+                  value={row.value}
+                  onChange={(value) => onParamChange(row.field, value)}
+                />
+              ))}
+            </div>
+
+            <div className="fazon-summary">
+              <div>
+                <span>Participacion litros fazon</span>
+                <strong>{pct(fazonProductionShare)}</strong>
+              </div>
+              <div>
+                <span>Pool costo mensual</span>
+                <strong>{money(totalProductionCostPool)}</strong>
+              </div>
+              <div>
+                <span>Costo asignado a fazon</span>
+                <strong>{money(totalFazonCost)}</strong>
+              </div>
+              <div>
+                <span>Ingreso neto fazon</span>
+                <strong>{money(netFazonRevenue)}</strong>
+              </div>
+              <div>
+                <span>Margen real total</span>
+                <strong className={marginTotal < 0 ? "negative" : undefined}>{money(marginTotal)}</strong>
+              </div>
+              <div>
+                <span>Margen real / TN</span>
+                <strong className={marginPerTon < 0 ? "negative" : undefined}>{money(marginPerTon)}</strong>
+              </div>
             </div>
           </div>
           {model.fazon.remitos.length ? (
