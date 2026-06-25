@@ -49,11 +49,8 @@ type CostParams = {
   comisionPct: number;
   sueldosAdmin: number;
   sueldosProduccion: number;
-  depreciacionFazonMensual: number;
-  energiaAguaFazonMensual: number;
-  mantenimientoFazonMensual: number;
-  insumosFazonMensual: number;
-  otrosCostosFazonMensual: number;
+  valorMaquinariaFazonUsd: number;
+  vidaUtilMaquinariaFazonAnios: number;
   litrosOptiblueIbc: number;
   litrosIndustrial: number;
   litrosFazon325: number;
@@ -441,11 +438,8 @@ const DEFAULT_PARAMS: CostParams = {
   comisionPct: 0,
   sueldosAdmin: 10000000,
   sueldosProduccion: 0,
-  depreciacionFazonMensual: 0,
-  energiaAguaFazonMensual: 0,
-  mantenimientoFazonMensual: 0,
-  insumosFazonMensual: 0,
-  otrosCostosFazonMensual: 0,
+  valorMaquinariaFazonUsd: 0,
+  vidaUtilMaquinariaFazonAnios: 10,
   litrosOptiblueIbc: 0,
   litrosIndustrial: 0,
   litrosFazon325: 0,
@@ -568,6 +562,8 @@ const PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Servicios web", proveedor: "*", tipo: "ADMIN", producto: "Comercial" },
   { articulo: "Servicio diseno grafico", proveedor: "*", tipo: "ADMIN", producto: "Comercial" },
   { articulo: "Servicio Energia electrica", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
+  { articulo: "Servicio Agua", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
+  { articulo: "Agua", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
   { articulo: "Insumos electricidad", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
   { articulo: "Combustible planta", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
   { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "*", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
@@ -2335,11 +2331,8 @@ export function CostCalculator() {
             <AssumptionInput label="Combustible OB" suffix="%" value={params.pctCombustibleOptiblue * 100} onChange={(value) => updateParam("pctCombustibleOptiblue", value / 100)} />
             <AssumptionInput label="Sueldos admin" value={params.sueldosAdmin} onChange={(value) => updateParam("sueldosAdmin", value)} />
             <AssumptionInput label="Sueldos prod." value={params.sueldosProduccion} onChange={(value) => updateParam("sueldosProduccion", value)} />
-            <AssumptionInput label="Deprec. fazon" value={params.depreciacionFazonMensual} onChange={(value) => updateParam("depreciacionFazonMensual", value)} />
-            <AssumptionInput label="Energia/agua fazon" value={params.energiaAguaFazonMensual} onChange={(value) => updateParam("energiaAguaFazonMensual", value)} />
-            <AssumptionInput label="Mant. fazon" value={params.mantenimientoFazonMensual} onChange={(value) => updateParam("mantenimientoFazonMensual", value)} />
-            <AssumptionInput label="Insumos fazon" value={params.insumosFazonMensual} onChange={(value) => updateParam("insumosFazonMensual", value)} />
-            <AssumptionInput label="Otros fazon" value={params.otrosCostosFazonMensual} onChange={(value) => updateParam("otrosCostosFazonMensual", value)} />
+            <AssumptionInput label="Maquinaria fazon USD" value={params.valorMaquinariaFazonUsd} onChange={(value) => updateParam("valorMaquinariaFazonUsd", value)} />
+            <AssumptionInput label="Vida util maq." value={params.vidaUtilMaquinariaFazonAnios} onChange={(value) => updateParam("vidaUtilMaquinariaFazonAnios", value)} />
             <AssumptionInput label="Dolar divisa BNA" value={params.dolarDivisaBna} onChange={(value) => updateParam("dolarDivisaBna", value)} />
             <AssumptionInput label="Fazon 32,5 USD/TN" value={params.precioFazon325UsdTon} onChange={(value) => updateParam("precioFazon325UsdTon", value)} />
             <AssumptionInput label="Fazon ind. USD/TN" value={params.precioFazonIndustrialUsdTon} onChange={(value) => updateParam("precioFazonIndustrialUsdTon", value)} />
@@ -2668,33 +2661,25 @@ function FazonPanel({
   const hasFazon =
     model.fazon.rows.some((row) => row.litros || row.facturacion || row.valorTeorico) ||
     model.fazon.totalComisiones;
-  const plantAutoTypes = [
-    "FABRIL_ELECTRICIDAD",
-    "FABRIL_MANTENIMIENTO",
-    "FABRIL_INSUMOS",
-    "FABRIL_SEGURIDAD",
-    "COSTO FABRIL",
-    "GAS",
-  ];
   const purchaseTotalByTypes = (tipos: string[]) =>
     sum(model.purchases, (row) => tipos.includes(row.tipo), (row) => row.total);
-  const otherPlantCost = sum(
-    model.purchases,
-    (row) =>
-      row.producto === "Planta" &&
-      !plantAutoTypes.includes(row.tipo) &&
-      !["INVERSION", "NO_COSTO", "RESULTADO_FINANCIERO"].includes(row.tipo),
-    (row) => row.total,
-  );
-  const automaticFabrilRows = [
-    { label: "Energia / electricidad / gas compras", value: purchaseTotalByTypes(["FABRIL_ELECTRICIDAD", "GAS"]) },
+  const depreciationMonthly =
+    params.valorMaquinariaFazonUsd && params.dolarDivisaBna && params.vidaUtilMaquinariaFazonAnios
+      ? (params.valorMaquinariaFazonUsd * params.dolarDivisaBna) / (params.vidaUtilMaquinariaFazonAnios * 12)
+      : 0;
+  const costPoolRows = [
+    { label: "Mano de obra produccion", value: params.sueldosProduccion, source: "Manual" },
+    { label: "Depreciacion maquinaria", value: depreciationMonthly, source: "Manual USD" },
+    { label: "Energia electrica / agua compras", value: purchaseTotalByTypes(["FABRIL_ELECTRICIDAD"]) },
+    { label: "Gas compras", value: purchaseTotalByTypes(["GAS"]) },
     { label: "Mantenimiento compras", value: purchaseTotalByTypes(["FABRIL_MANTENIMIENTO"]) },
     { label: "Insumos fabriles compras", value: purchaseTotalByTypes(["FABRIL_INSUMOS"]) },
     { label: "Seguridad e higiene compras", value: purchaseTotalByTypes(["FABRIL_SEGURIDAD"]) },
     { label: "Otros costos fabriles compras", value: purchaseTotalByTypes(["COSTO FABRIL"]) },
-    { label: "Otras compras de planta", value: otherPlantCost },
   ];
-  const automaticFabrilCost = automaticFabrilRows.reduce((total, row) => total + row.value, 0);
+  const purchasesFabrilCost = costPoolRows
+    .filter((row) => row.source !== "Manual" && row.source !== "Manual USD")
+    .reduce((total, row) => total + row.value, 0);
   const fazonLiters = model.fazon.rows.reduce((total, row) => total + row.litros, 0);
   const totalProductionLiters = model.kpis.litrosTotales + fazonLiters;
   const fazonProductionShare = totalProductionLiters
@@ -2702,14 +2687,8 @@ function FazonPanel({
     : model.fazon.totalToneladas
       ? 1
       : 0;
-  const manualProductionCostPool =
-    params.sueldosProduccion +
-    params.depreciacionFazonMensual +
-    params.energiaAguaFazonMensual +
-    params.mantenimientoFazonMensual +
-    params.insumosFazonMensual +
-    params.otrosCostosFazonMensual;
-  const totalProductionCostPool = automaticFabrilCost + manualProductionCostPool;
+  const manualProductionCostPool = params.sueldosProduccion + depreciationMonthly;
+  const totalProductionCostPool = costPoolRows.reduce((total, row) => total + row.value, 0);
   const totalFazonCost = totalProductionCostPool * fazonProductionShare;
   const costPerTon = model.fazon.totalToneladas ? totalFazonCost / model.fazon.totalToneladas : 0;
   const netFazonRevenue = model.fazon.totalFacturado - model.fazon.totalComisiones;
@@ -2725,9 +2704,9 @@ function FazonPanel({
     const allocationLiters = row.litros || (row.toneladas && row.densidad ? (row.toneladas * 1000) / row.densidad : 0);
     const productShare = fazonAllocationBase ? allocationLiters / fazonAllocationBase : 1 / Math.max(fazonRowsForAllocation.length, 1);
     const laborCost = params.sueldosProduccion * fazonProductionShare * productShare;
-    const automaticCost = automaticFabrilCost * fazonProductionShare * productShare;
-    const manualOtherCost = (manualProductionCostPool - params.sueldosProduccion) * fazonProductionShare * productShare;
-    const totalCost = laborCost + automaticCost + manualOtherCost;
+    const depreciationCost = depreciationMonthly * fazonProductionShare * productShare;
+    const purchasesCost = purchasesFabrilCost * fazonProductionShare * productShare;
+    const totalCost = laborCost + depreciationCost + purchasesCost;
     const netRevenue = row.facturacion - row.comision;
     const margin = netRevenue - totalCost;
     return {
@@ -2735,8 +2714,8 @@ function FazonPanel({
       allocationLiters,
       share: productShare,
       laborCost,
-      automaticCost,
-      manualOtherCost,
+      depreciationCost,
+      purchasesCost,
       totalCost,
       costPerTon: row.toneladas ? totalCost / row.toneladas : 0,
       netRevenue,
@@ -2744,13 +2723,9 @@ function FazonPanel({
       marginPerTon: row.toneladas ? margin / row.toneladas : 0,
     };
   });
-  const costRows = [
-    { label: "Mano de obra produccion", value: params.sueldosProduccion, field: "sueldosProduccion" as const },
-    { label: "Depreciacion maquinaria", value: params.depreciacionFazonMensual, field: "depreciacionFazonMensual" as const },
-    { label: "Energia / agua manual", value: params.energiaAguaFazonMensual, field: "energiaAguaFazonMensual" as const },
-    { label: "Mantenimiento manual", value: params.mantenimientoFazonMensual, field: "mantenimientoFazonMensual" as const },
-    { label: "Filtros e insumos manual", value: params.insumosFazonMensual, field: "insumosFazonMensual" as const },
-    { label: "Otros costos productivos", value: params.otrosCostosFazonMensual, field: "otrosCostosFazonMensual" as const },
+  const depreciationFields = [
+    { label: "Valor maquinaria USD", value: params.valorMaquinariaFazonUsd, field: "valorMaquinariaFazonUsd" as const },
+    { label: "Vida util anios", value: params.vidaUtilMaquinariaFazonAnios, field: "vidaUtilMaquinariaFazonAnios" as const },
   ];
 
   return (
@@ -2841,13 +2816,13 @@ function FazonPanel({
                 <span>{money(params.sueldosProduccion)} mano de obra</span>
                 <span>{money(totalFazonCost)} asignado</span>
                 <span>{money(costPerTon)} / TN</span>
-                <span>{money(automaticFabrilCost)} compras</span>
+                <span>{money(purchasesFabrilCost)} compras</span>
                 <span>{pct(marginPct)} margen</span>
               </div>
             </div>
 
             <div className="fazon-cost-grid">
-              {costRows.map((row) => (
+              {depreciationFields.map((row) => (
                 <AssumptionInput
                   key={row.field}
                   label={row.label}
@@ -2860,10 +2835,10 @@ function FazonPanel({
             <div className="fazon-summary">
               <div>
                 <span>Compras fabriles detectadas</span>
-                <strong>{money(automaticFabrilCost)}</strong>
+                <strong>{money(purchasesFabrilCost)}</strong>
               </div>
               <div>
-                <span>Ajustes manuales</span>
+                <span>Mano de obra + depreciacion</span>
                 <strong>{money(manualProductionCostPool)}</strong>
               </div>
               <div>
@@ -2903,8 +2878,8 @@ function FazonPanel({
                     <th>Base L</th>
                     <th>Participacion</th>
                     <th>Mano de obra</th>
-                    <th>Compras fabriles</th>
-                    <th>Ajustes manuales</th>
+                    <th>Depreciacion</th>
+                    <th>Compras productivas</th>
                     <th>Costo total</th>
                     <th>Costo/TN</th>
                     <th>Ingreso neto</th>
@@ -2918,8 +2893,8 @@ function FazonPanel({
                       <td>{number(row.allocationLiters)}</td>
                       <td>{pct(row.share)}</td>
                       <td>{money(row.laborCost)}</td>
-                      <td>{money(row.automaticCost)}</td>
-                      <td>{money(row.manualOtherCost)}</td>
+                      <td>{money(row.depreciationCost)}</td>
+                      <td>{money(row.purchasesCost)}</td>
                       <td>{money(row.totalCost)}</td>
                       <td>{money(row.costPerTon)}</td>
                       <td>{money(row.netRevenue)}</td>
@@ -2931,8 +2906,8 @@ function FazonPanel({
             </div>
             <details className="remitos-disclosure">
               <summary>
-                <span>Ver compras fabriles tomadas</span>
-                <strong>{money(automaticFabrilCost)}</strong>
+                <span>Ver rubros del costo productivo</span>
+                <strong>{money(totalProductionCostPool)}</strong>
               </summary>
               <div className="table-wrap">
                 <table>
@@ -2943,7 +2918,7 @@ function FazonPanel({
                     </tr>
                   </thead>
                   <tbody>
-                    {automaticFabrilRows.map((row) => (
+                    {costPoolRows.map((row) => (
                       <tr key={row.label}>
                         <td>{row.label}</td>
                         <td>{money(row.value)}</td>
