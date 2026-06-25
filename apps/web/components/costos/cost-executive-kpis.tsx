@@ -95,6 +95,7 @@ type DisplayProduct = ExactRisk | FallbackProduct;
 
 const PURCHASE_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-compras-v1";
 const SALES_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-ventas-v1";
+const REMITOS_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-remitos-v1";
 const COST_MODEL_SNAPSHOT_STORAGE_KEY = "erp-costos-modelo-calculado-v1";
 
 const PRODUCT_RULES = [
@@ -356,6 +357,43 @@ function parsePurchases(workbook: XLSX.WorkBook | null) {
   return [];
 }
 
+function parseRemitosFazon(workbook: XLSX.WorkBook | null) {
+  if (!workbook) return null;
+
+  let litros325 = 0;
+  let toneladasIndustrial = 0;
+  const remitos = new Set<string>();
+
+  for (const sheetName of workbook.SheetNames) {
+    const rows = sheetRows(workbook, sheetName);
+    rows.forEach((row) => {
+      const articulo = text(row[8]);
+      const remito = text(row[4]);
+      const cantidad = num(row[10]);
+      const unidad = key(row[11]);
+      const normalized = key(articulo);
+
+      if (remito) remitos.add(remito);
+      if ((normalized.includes("32.5") || normalized.includes("32,5")) && unidad === "LT") {
+        litros325 += cantidad;
+      }
+      if (normalized.includes("SOLUCION UREA") && unidad === "TON") {
+        toneladasIndustrial += cantidad;
+      }
+    });
+  }
+
+  const totalToneladas = litros325 * 1.09 / 1000 + toneladasIndustrial;
+  if (!totalToneladas && !remitos.size) return null;
+
+  return {
+    totalToneladas,
+    litros325,
+    toneladasIndustrial,
+    remitos: remitos.size,
+  };
+}
+
 function buildKpis(sales: ParsedSale[], purchases: ParsedPurchase[]) {
   const facturacion = sales.reduce((total, row) => total + row.total, 0);
   const litros = sales.reduce((total, row) => total + row.litros, 0);
@@ -455,9 +493,14 @@ function productCost(product: DisplayProduct) {
 export function CostExecutiveKpis() {
   const [snapshot, setSnapshot] = useState(0);
   const [exactSnapshot, setExactSnapshot] = useState<ExactModelSnapshot | null>(null);
-  const [files, setFiles] = useState<{ purchases: StoredWorkbook | null; sales: StoredWorkbook | null }>({
+  const [files, setFiles] = useState<{
+    purchases: StoredWorkbook | null;
+    sales: StoredWorkbook | null;
+    remitos: StoredWorkbook | null;
+  }>({
     purchases: null,
     sales: null,
+    remitos: null,
   });
 
   useEffect(() => {
@@ -466,6 +509,7 @@ export function CostExecutiveKpis() {
       setFiles({
         purchases: parseStoredWorkbook(window.localStorage.getItem(PURCHASE_FILE_STORAGE_KEY)),
         sales: parseStoredWorkbook(window.localStorage.getItem(SALES_FILE_STORAGE_KEY)),
+        remitos: parseStoredWorkbook(window.localStorage.getItem(REMITOS_FILE_STORAGE_KEY)),
       });
     };
     load();
@@ -483,14 +527,25 @@ export function CostExecutiveKpis() {
   const data = useMemo(() => {
     const sales = parseSales(files.sales?.workbook ?? null);
     const purchases = parsePurchases(files.purchases?.workbook ?? null);
+    const remitosFazon = parseRemitosFazon(files.remitos?.workbook ?? null);
     const fallback = buildKpis(sales, purchases);
+    const exactFazon = exactSnapshot?.fazon ?? null;
+    const visibleFazon = exactFazon ?? (remitosFazon
+      ? {
+          totalToneladas: remitosFazon.totalToneladas,
+          totalTeorico: 0,
+          totalFacturado: 0,
+          totalDiferencia: 0,
+          remitos: Array.from({ length: remitosFazon.remitos }),
+        }
+      : null);
     if (exactSnapshot) {
       return {
         mode: "exact" as const,
         files: {
           sales: exactSnapshot.files?.sales || files.sales?.fileName || "",
           purchases: exactSnapshot.files?.purchases || files.purchases?.fileName || "",
-          remitos: exactSnapshot.files?.remitos || "",
+          remitos: exactSnapshot.files?.remitos || files.remitos?.fileName || "",
         },
         kpis: {
           topCost: exactSnapshot.insights.topGlobalDriver,
@@ -507,7 +562,7 @@ export function CostExecutiveKpis() {
           levers: exactSnapshot.insights.topLevers,
           products: exactSnapshot.insights.risks,
           totalReduciblePerLiter: exactSnapshot.insights.totalReduciblePerLiter,
-          fazon: exactSnapshot.fazon ?? null,
+          fazon: visibleFazon,
         },
       };
     }
@@ -517,7 +572,7 @@ export function CostExecutiveKpis() {
       files: {
         sales: files.sales?.fileName || "",
         purchases: files.purchases?.fileName || "",
-        remitos: "",
+        remitos: files.remitos?.fileName || "",
       },
       kpis: {
         topCost: fallback.topCost,
@@ -529,12 +584,12 @@ export function CostExecutiveKpis() {
         levers: fallback.levers,
         products: fallback.products,
         totalReduciblePerLiter: 0,
-        fazon: null,
+        fazon: visibleFazon,
       },
     };
   }, [exactSnapshot, files, snapshot]);
 
-  if (!exactSnapshot && !files.sales && !files.purchases) return null;
+  if (!exactSnapshot && !files.sales && !files.purchases && !files.remitos) return null;
 
   return (
     <section className={styles.executiveKpis}>
@@ -593,7 +648,9 @@ export function CostExecutiveKpis() {
           <strong>{data.kpis.fazon ? `${number(data.kpis.fazon.totalToneladas)} TN` : "Sin remitos"}</strong>
           <p>
             {data.kpis.fazon
-              ? `${money(data.kpis.fazon.totalTeorico)} esperado, ${money(data.kpis.fazon.totalFacturado)} facturado.`
+              ? data.kpis.fazon.totalTeorico || data.kpis.fazon.totalFacturado
+                ? `${money(data.kpis.fazon.totalTeorico)} esperado, ${money(data.kpis.fazon.totalFacturado)} facturado.`
+                : `${data.kpis.fazon.remitos?.length ?? 0} remitos cargados como fuente de produccion.`
               : "Carga remitos IF para ver toneladas producidas."}
           </p>
         </article>
