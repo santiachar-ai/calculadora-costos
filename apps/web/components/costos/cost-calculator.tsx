@@ -2661,21 +2661,27 @@ function FazonPanel({
   const hasFazon =
     model.fazon.rows.some((row) => row.litros || row.facturacion || row.valorTeorico) ||
     model.fazon.totalComisiones;
-  const purchaseTotalByTypes = (tipos: string[]) =>
-    sum(model.purchases, (row) => tipos.includes(row.tipo), (row) => row.total);
+  const purchasesByTypes = (tipos: string[]) => model.purchases.filter((row) => tipos.includes(row.tipo));
+  const totalPurchases = (rows: PurchaseRow[]) => rows.reduce((total, row) => total + row.total, 0);
   const depreciationMonthly =
     params.valorMaquinariaFazonUsd && params.dolarDivisaBna && params.vidaUtilMaquinariaFazonAnios
       ? (params.valorMaquinariaFazonUsd * params.dolarDivisaBna) / (params.vidaUtilMaquinariaFazonAnios * 12)
       : 0;
+  const energyRows = purchasesByTypes(["FABRIL_ELECTRICIDAD"]);
+  const gasRows = purchasesByTypes(["GAS"]);
+  const maintenanceRows = purchasesByTypes(["FABRIL_MANTENIMIENTO"]);
+  const suppliesRows = purchasesByTypes(["FABRIL_INSUMOS"]);
+  const safetyRows = purchasesByTypes(["FABRIL_SEGURIDAD"]);
+  const otherFabrilRows = purchasesByTypes(["COSTO FABRIL"]);
   const costPoolRows = [
-    { label: "Mano de obra produccion", value: params.sueldosProduccion, source: "Manual" },
-    { label: "Depreciacion maquinaria", value: depreciationMonthly, source: "Manual USD" },
-    { label: "Energia electrica / agua compras", value: purchaseTotalByTypes(["FABRIL_ELECTRICIDAD"]) },
-    { label: "Gas compras", value: purchaseTotalByTypes(["GAS"]) },
-    { label: "Mantenimiento compras", value: purchaseTotalByTypes(["FABRIL_MANTENIMIENTO"]) },
-    { label: "Insumos fabriles compras", value: purchaseTotalByTypes(["FABRIL_INSUMOS"]) },
-    { label: "Seguridad e higiene compras", value: purchaseTotalByTypes(["FABRIL_SEGURIDAD"]) },
-    { label: "Otros costos fabriles compras", value: purchaseTotalByTypes(["COSTO FABRIL"]) },
+    { label: "Mano de obra produccion", value: params.sueldosProduccion, source: "Manual", purchases: [] },
+    { label: "Depreciacion maquinaria", value: depreciationMonthly, source: "Manual USD", purchases: [] },
+    { label: "Energia electrica / agua compras", value: totalPurchases(energyRows), purchases: energyRows },
+    { label: "Gas compras", value: totalPurchases(gasRows), purchases: gasRows },
+    { label: "Mantenimiento compras", value: totalPurchases(maintenanceRows), purchases: maintenanceRows },
+    { label: "Insumos fabriles compras", value: totalPurchases(suppliesRows), purchases: suppliesRows },
+    { label: "Seguridad e higiene compras", value: totalPurchases(safetyRows), purchases: safetyRows },
+    { label: "Otros costos fabriles compras", value: totalPurchases(otherFabrilRows), purchases: otherFabrilRows },
   ];
   const purchasesFabrilCost = costPoolRows
     .filter((row) => row.source !== "Manual" && row.source !== "Manual USD")
@@ -2913,23 +2919,49 @@ function FazonPanel({
                 <span>Ver rubros del costo productivo</span>
                 <strong>{money(totalProductionCostPool)}</strong>
               </summary>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Concepto</th>
-                      <th>Importe</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {costPoolRows.map((row) => (
-                      <tr key={row.label}>
-                        <td>{row.label}</td>
-                        <td>{money(row.value)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="cost-breakdown-list">
+                {costPoolRows.map((row) => (
+                  <details className="cost-breakdown-item" key={row.label}>
+                    <summary>
+                      <span>{row.label}</span>
+                      <strong>{money(row.value)}</strong>
+                    </summary>
+                    {row.purchases.length ? (
+                      <div className="table-wrap">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Comprobante</th>
+                              <th>Proveedor</th>
+                              <th>Articulo</th>
+                              <th>Tipo</th>
+                              <th>Importe</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {row.purchases.map((purchase, index) => (
+                              <tr key={`${row.label}-${purchase.comprobante}-${purchase.articulo}-${index}`}>
+                                <td>{purchase.comprobante || "-"}</td>
+                                <td>{purchase.proveedor || "-"}</td>
+                                <td><strong>{purchase.articulo || "-"}</strong></td>
+                                <td>{purchase.tipo}</td>
+                                <td>{money(purchase.total)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="empty-state">
+                        {row.source === "Manual"
+                          ? "Este rubro usa el valor manual de sueldos de produccion."
+                          : row.source === "Manual USD"
+                            ? "Este rubro se calcula con valor de maquinaria, dolar y vida util."
+                            : "No hay compras imputadas a este rubro."}
+                      </div>
+                    )}
+                  </details>
+                ))}
               </div>
             </details>
           </div>
