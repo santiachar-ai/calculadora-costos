@@ -912,6 +912,98 @@ th {
   margin: 0;
 }
 
+.remitos-control-card {
+  display: grid;
+  gap: 18px;
+}
+
+.remito-control-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.remito-control-grid article {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(248, 252, 255, 0.78);
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.remito-control-grid span,
+.remito-client-list h3 {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.remito-control-grid strong {
+  color: var(--ink);
+  font-size: 1.2rem;
+}
+
+.remito-control-grid p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.remito-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.check-pill {
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 8px 12px;
+}
+
+.check-pill.good {
+  background: rgba(38, 115, 91, 0.12);
+  color: var(--success);
+}
+
+.check-pill.warning {
+  background: rgba(177, 115, 37, 0.14);
+  color: #9a5c16;
+}
+
+.remito-client-list {
+  display: grid;
+  gap: 10px;
+}
+
+.remito-client-list h3 {
+  margin: 0;
+}
+
+.remito-client-list div {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.remito-client-list span {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--muted);
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.remito-client-list strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
 .executive-kpis {
   display: grid;
   gap: 18px;
@@ -1542,6 +1634,8 @@ th {
   .driver-grid,
   .driver-metrics,
   .fazon-summary,
+  .remito-control-grid,
+  .remito-client-list div,
   .master-add-row.purchase,
   .master-add-row.sales {
     grid-template-columns: 1fr;

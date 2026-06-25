@@ -2331,6 +2331,8 @@ export function CostCalculator() {
             onSaveSale={saveSalesRule}
           />
 
+          <RemitosControlPanel model={model} />
+
           <FazonPanel model={model} />
 
           <CostDriversPanel model={model} />
@@ -2352,6 +2354,132 @@ export function CostCalculator() {
         />
       )}
     </div>
+  );
+}
+
+function RemitosControlPanel({ model }: { model: CostModel }) {
+  const remitos = model.fazon.remitos;
+  if (!remitos.length) return null;
+
+  const totalLitros325 = remitos.reduce((total, row) => total + row.litros325, 0);
+  const totalTon325 = remitos.reduce((total, row) => total + row.toneladas325, 0);
+  const totalIndustrial = remitos.reduce((total, row) => total + row.toneladasIndustrial, 0);
+  const clientes = new Set(remitos.map((row) => row.cliente).filter(Boolean));
+  const remitosConEnvases = remitos.filter((row) => row.envases.length > 0);
+  const remitosSoloEnvases = remitos.filter(
+    (row) => row.envases.length > 0 && !row.litros325 && !row.toneladasIndustrial,
+  );
+  const remitosConProductoYEnvase = remitos.filter(
+    (row) => row.envases.length > 0 && (row.litros325 || row.toneladasIndustrial),
+  );
+  const remitosSinProducto = remitos.filter((row) => !row.litros325 && !row.toneladasIndustrial);
+  const clientTotals = Array.from(
+    remitos.reduce((map, row) => {
+      const current = map.get(row.cliente) ?? { cliente: row.cliente, remitos: 0, toneladas: 0 };
+      current.remitos += 1;
+      current.toneladas += row.toneladas325 + row.toneladasIndustrial;
+      map.set(row.cliente, current);
+      return map;
+    }, new Map<string, { cliente: string; remitos: number; toneladas: number }>()),
+  )
+    .map(([, value]) => value)
+    .sort((a, b) => b.toneladas - a.toneladas)
+    .slice(0, 5);
+
+  return (
+    <section className="table-card remitos-control-card">
+      <div className="section-head">
+        <div>
+          <p className="eyebrow">Control de remitos</p>
+          <h2>Lectura del archivo de movimientos</h2>
+          <p>
+            Este panel muestra lo que la calculadora extrajo del Excel antes de usarlo como base de
+            toneladas para el fazon.
+          </p>
+        </div>
+        <div className="driver-summary">
+          <span>{number(remitos.length)} remitos</span>
+          <span>{number(clientes.size)} clientes</span>
+          <span>{number(totalTon325 + totalIndustrial)} TN</span>
+        </div>
+      </div>
+
+      <div className="remito-control-grid">
+        <article>
+          <span>Solucion 32,5</span>
+          <strong>{number(totalLitros325)} L</strong>
+          <p>{number(totalTon325, 3)} TN usando densidad 1,09.</p>
+        </article>
+        <article>
+          <span>Solucion industrial</span>
+          <strong>{number(totalIndustrial, 3)} TN</strong>
+          <p>Tomado directo de lineas en toneladas.</p>
+        </article>
+        <article>
+          <span>Envases separados</span>
+          <strong>{number(model.fazon.totalEnvases)}</strong>
+          <p>{number(remitosConProductoYEnvase.length)} remitos tienen producto y envases.</p>
+        </article>
+        <article>
+          <span>Revision</span>
+          <strong>{remitosSinProducto.length ? "Revisar" : "OK"}</strong>
+          <p>{number(remitosSoloEnvases.length)} remitos tienen solo envases reconocidos.</p>
+        </article>
+      </div>
+
+      <div className="remito-checks">
+        <span className="check-pill good">32,5 convertido a toneladas</span>
+        <span className="check-pill good">Envases excluidos del tonelaje</span>
+        <span className={remitosSoloEnvases.length ? "check-pill warning" : "check-pill good"}>
+          {remitosSoloEnvases.length ? `${number(remitosSoloEnvases.length)} remitos solo con envases` : "Sin remitos solo-envase"}
+        </span>
+      </div>
+
+      <div className="remito-client-list">
+        <h3>Principales clientes por toneladas leidas</h3>
+        <div>
+          {clientTotals.map((row) => (
+            <span key={row.cliente}>
+              <strong>{row.cliente}</strong>
+              {number(row.toneladas, 3)} TN / {number(row.remitos)} remitos
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Remito</th>
+              <th>32,5 L</th>
+              <th>32,5 TN</th>
+              <th>Industrial TN</th>
+              <th>Control</th>
+            </tr>
+          </thead>
+          <tbody>
+            {remitos.map((row) => {
+              const hasProduct = row.litros325 || row.toneladasIndustrial;
+              return (
+                <tr key={`${row.cliente}-${row.remito}`}>
+                  <td>{row.cliente}</td>
+                  <td><strong>{row.remito}</strong></td>
+                  <td>{number(row.litros325)}</td>
+                  <td>{number(row.toneladas325, 3)}</td>
+                  <td>{number(row.toneladasIndustrial, 3)}</td>
+                  <td>
+                    {hasProduct ? "Producto leido" : "Solo envases"}
+                    {row.envases.length ? ` / ${number(row.envases.length)} envases` : ""}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
