@@ -366,11 +366,25 @@ function parseRemitosFazon(workbook: XLSX.WorkBook | null) {
 
   for (const sheetName of workbook.SheetNames) {
     const rows = sheetRows(workbook, sheetName);
-    rows.forEach((row) => {
-      const articulo = text(row[8]);
-      const remito = text(row[4]);
-      const cantidad = num(row[10]);
-      const unidad = key(row[11]);
+    const headerIndex = rows.findIndex((row) =>
+      row.some((cell) => key(cell) === "COMPROBANTE") &&
+      row.some((cell) => key(cell) === "ARTICULO"),
+    );
+    const header = headerIndex >= 0 ? rows[headerIndex] ?? [] : [];
+    const comprobanteColumn = header.findIndex((cell) => key(cell) === "COMPROBANTE");
+    const articuloColumn = header.findIndex((cell) => key(cell) === "ARTICULO");
+    const salidaColumn = header.findIndex((cell) => {
+      const value = key(cell);
+      return value === "SALE" || value === "SALIDA";
+    });
+
+    rows.slice(headerIndex >= 0 ? headerIndex + 1 : 0).forEach((row) => {
+      const articulo = text(row[articuloColumn >= 0 ? articuloColumn : 8]);
+      const remito =
+        text(row[comprobanteColumn >= 0 ? comprobanteColumn + 1 : 4]) ||
+        text(row[comprobanteColumn >= 0 ? comprobanteColumn : 4]);
+      const cantidad = num(row[salidaColumn >= 0 ? salidaColumn : 10]);
+      const unidad = key(row[salidaColumn >= 0 ? salidaColumn + 1 : 11]);
       const normalized = key(articulo);
 
       if (remito) remitos.add(remito);

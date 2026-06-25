@@ -976,6 +976,35 @@ function remitoArticleFromRow(row: unknown[]) {
   return found ?? "";
 }
 
+function remitoClientFromRow(row: unknown[]) {
+  const found = row.map((cell) => text(cell)).find((cell) => key(cell).startsWith("CLIENTE:"));
+  return found ? found.replace(/^Cliente:\s*/i, "").trim() : "";
+}
+
+function remitoColumnsFromRows(rows: unknown[][]) {
+  const headerIndex = rows.findIndex((row) =>
+    row.some((cell) => key(cell) === "COMPROBANTE") &&
+    row.some((cell) => key(cell) === "ARTICULO"),
+  );
+  if (headerIndex < 0) return null;
+
+  const header = rows[headerIndex] ?? [];
+  const comprobanteColumn = header.findIndex((cell) => key(cell) === "COMPROBANTE");
+  const articuloColumn = header.findIndex((cell) => key(cell) === "ARTICULO");
+  const salidaColumn = header.findIndex((cell) => {
+    const value = key(cell);
+    return value === "SALE" || value === "SALIDA";
+  });
+
+  return {
+    headerIndex,
+    comprobanteColumn,
+    articuloColumn,
+    salidaColumn,
+    unidadColumn: salidaColumn >= 0 ? salidaColumn + 1 : -1,
+  };
+}
+
 function remitoRowsFromWorkbook(workbook: XLSX.WorkBook | null): RawRow[] {
   if (!workbook) return [];
 
@@ -990,18 +1019,38 @@ function remitoRowsFromWorkbook(workbook: XLSX.WorkBook | null): RawRow[] {
       defval: "",
       raw: true,
     });
+    const columns = remitoColumnsFromRows(rows);
     let cliente = "";
 
-    rows.forEach((row) => {
-      const firstCell = text(row[0]);
-      if (firstCell.startsWith("Cliente:")) {
-        cliente = firstCell.replace(/^Cliente:\s*/i, "").trim();
+    rows.forEach((row, index) => {
+      if (columns && index <= columns.headerIndex) return;
+
+      const rowClient = remitoClientFromRow(row);
+      if (rowClient) {
+        cliente = rowClient;
         return;
       }
 
-      const comprobante = remitoNumberFromRow(row);
-      const articulo = remitoArticleFromRow(row);
-      const { cantidad, unidad } = remitoQuantityAndUnitFromRow(row, 10, 11);
+      const comprobante =
+        columns && columns.comprobanteColumn >= 0
+          ? remitoNumberFromRow([
+              ...row.slice(0, 4),
+              row[columns.comprobanteColumn + 1] || row[columns.comprobanteColumn],
+              ...row.slice(5),
+            ])
+          : remitoNumberFromRow(row);
+      const articulo =
+        columns && columns.articuloColumn >= 0 ? text(row[columns.articuloColumn]) : remitoArticleFromRow(row);
+      const quantityAndUnit =
+        columns && columns.salidaColumn >= 0
+          ? {
+              cantidad: num(row[columns.salidaColumn]),
+              unidad: text(row[columns.unidadColumn]),
+            }
+          : remitoQuantityAndUnitFromRow(row, 10, 11);
+      const { cantidad, unidad } = quantityAndUnit.cantidad || quantityAndUnit.unidad
+        ? quantityAndUnit
+        : remitoQuantityAndUnitFromRow(row, 10, 11);
       const kind = remitoArticleKind(articulo, unidad);
 
       if (!cliente || !comprobante || !articulo || kind === "OTRO") return;
