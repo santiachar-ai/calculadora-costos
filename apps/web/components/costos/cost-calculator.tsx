@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import { CostExecutiveKpis } from "./cost-executive-kpis";
 
 type RawRow = Record<string, unknown>;
 
@@ -393,7 +394,7 @@ const PURCHASE_PRODUCTS = [
 ];
 
 const SALES_TYPES = ["PRODUCTO", "SERVICIO", "ACCESORIO", "OTROS"];
-type CostView = "calculo" | "imputacion" | "maestro";
+type CostView = "calculo" | "kpis" | "revisiones" | "imputacion" | "maestro";
 
 type CostConfigurationPayload = {
   params: CostParams | null;
@@ -2248,6 +2249,20 @@ export function CostCalculator() {
           Calculo de costos
         </button>
         <button
+          className={activeView === "kpis" ? "active" : ""}
+          onClick={() => setActiveView("kpis")}
+          type="button"
+        >
+          KPIs
+        </button>
+        <button
+          className={activeView === "revisiones" ? "active" : ""}
+          onClick={() => setActiveView("revisiones")}
+          type="button"
+        >
+          Revisiones
+        </button>
+        <button
           className={activeView === "imputacion" ? "active" : ""}
           onClick={() => setActiveView("imputacion")}
           type="button"
@@ -2330,13 +2345,6 @@ export function CostCalculator() {
         </section>
       ) : activeView === "calculo" ? (
         <>
-          <section className="kpi-grid">
-            <Kpi label="Resultado core" value={money(model.kpis.resultadoCore)} tone={model.kpis.resultadoCore >= 0 ? "good" : "bad"} />
-            <Kpi label="Punto equilibrio" value={`${number(model.kpis.puntoEquilibrioLitros)} L`} />
-            <Kpi label="Resultado neto x L" value={money(model.kpis.resultadoNetoLitro)} />
-            <Kpi label="Facturacion analizada" value={money(model.kpis.facturacionAnalizada)} />
-          </section>
-
           <section className="cost-section">
             <div className="section-head">
               <div>
@@ -2408,6 +2416,19 @@ export function CostCalculator() {
               </div>
             </article>
 
+          </section>
+        </>
+      ) : activeView === "kpis" ? (
+        <>
+          <CostExecutiveKpis />
+
+          <section className="kpi-grid">
+            <Kpi label="Resultado core" value={money(model.kpis.resultadoCore)} tone={model.kpis.resultadoCore >= 0 ? "good" : "bad"} />
+            <Kpi label="Punto equilibrio" value={`${number(model.kpis.puntoEquilibrioLitros)} L`} />
+            <Kpi label="Resultado neto x L" value={money(model.kpis.resultadoNetoLitro)} />
+            <Kpi label="Facturacion analizada" value={money(model.kpis.facturacionAnalizada)} />
+          </section>
+
           <section className="kpi-grid secondary-kpis">
             <Kpi label="Logistica OptiBlue x L" value={money(model.kpis.logisticaOptiblueLitro)} />
             <Kpi label="Costo fabril x L" value={money(model.kpis.costoFabrilLitro)} />
@@ -2416,10 +2437,11 @@ export function CostCalculator() {
             <Kpi label="Precintos x L" value={money(model.kpis.precintosPorLitro)} />
             <Kpi label="Facturacion cubierta" value={pct(model.kpis.facturacionTotal ? model.kpis.facturacionAnalizada / model.kpis.facturacionTotal : 0)} />
           </section>
-          </section>
 
           <CostDriversPanel model={model} />
-
+        </>
+      ) : activeView === "revisiones" ? (
+        <>
           <PendingClassification
             model={model}
             onSavePurchase={savePurchaseRule}
