@@ -3686,6 +3686,15 @@ function AllocationMaster({
     onAddPurchase(rule);
   }
 
+  function editBaseSalesRule(rule: SalesRule) {
+    const existingIndex = customSalesRules.findIndex((item) => key(item.articulo) === key(rule.articulo));
+    if (existingIndex >= 0) {
+      onUpdateSales(existingIndex, rule);
+      return;
+    }
+    onAddSales(rule);
+  }
+
   function addSalesRule() {
     if (!newSalesRule.articulo.trim()) return;
     onAddSales({
@@ -4000,16 +4009,9 @@ function AllocationMaster({
           rules={basePurchases}
           onEdit={editBasePurchaseRule}
         />
-        <ReadOnlyRuleTable
-          columns={["Articulo", "Tipo", "Producto", "Factor", "Litros"]}
-          rows={baseSales.map((rule) => [
-            rule.articulo,
-            rule.tipo,
-            rule.producto,
-            number(rule.factor),
-            rule.generaLitros ? "Si" : "No",
-          ])}
-          title="Ventas base"
+        <BaseSalesRuleTable
+          rules={baseSales}
+          onEdit={editBaseSalesRule}
         />
       </div>
     </section>
@@ -4065,6 +4067,19 @@ function BasePurchaseRuleTable({
   rules: PurchaseRule[];
   onEdit: (rule: PurchaseRule) => void;
 }) {
+  const [filters, setFilters] = useState({
+    articulo: "",
+    proveedor: "",
+    tipo: "",
+    producto: "",
+  });
+  const filteredRules = rules.filter((rule) =>
+    (!filters.articulo || key(rule.articulo).includes(key(filters.articulo))) &&
+    (!filters.proveedor || key(rule.proveedor).includes(key(filters.proveedor))) &&
+    (!filters.tipo || key(rule.tipo).includes(key(filters.tipo)) || key(purchaseTypeName(rule.tipo)).includes(key(filters.tipo))) &&
+    (!filters.producto || key(rule.producto).includes(key(filters.producto))),
+  );
+
   return (
     <article className="table-card audit-card">
       <h2>Compras base</h2>
@@ -4079,9 +4094,44 @@ function BasePurchaseRuleTable({
               <th>Producto</th>
               <th>Accion</th>
             </tr>
+            <tr className="master-filter-row">
+              <th>
+                <input
+                  aria-label="Filtrar articulo compra base"
+                  value={filters.articulo}
+                  onChange={(event) => setFilters((current) => ({ ...current, articulo: event.target.value }))}
+                  placeholder="Filtrar articulo"
+                />
+              </th>
+              <th>
+                <input
+                  aria-label="Filtrar proveedor compra base"
+                  value={filters.proveedor}
+                  onChange={(event) => setFilters((current) => ({ ...current, proveedor: event.target.value }))}
+                  placeholder="Proveedor"
+                />
+              </th>
+              <th>
+                <input
+                  aria-label="Filtrar tipo compra base"
+                  value={filters.tipo}
+                  onChange={(event) => setFilters((current) => ({ ...current, tipo: event.target.value }))}
+                  placeholder="Tipo"
+                />
+              </th>
+              <th>
+                <input
+                  aria-label="Filtrar producto compra base"
+                  value={filters.producto}
+                  onChange={(event) => setFilters((current) => ({ ...current, producto: event.target.value }))}
+                  placeholder="Producto"
+                />
+              </th>
+              <th />
+            </tr>
           </thead>
           <tbody>
-            {rules.map((rule, index) => (
+            {filteredRules.map((rule, index) => (
               <tr key={`purchase-base-${index}`}>
                 <td>{rule.articulo}</td>
                 <td>{rule.proveedor}</td>
@@ -4094,9 +4144,117 @@ function BasePurchaseRuleTable({
                 </td>
               </tr>
             ))}
-            {rules.length === 0 ? (
+            {filteredRules.length === 0 ? (
               <tr>
                 <td colSpan={5}>No hay reglas base de compra para esta busqueda.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  );
+}
+
+function BaseSalesRuleTable({
+  rules,
+  onEdit,
+}: {
+  rules: SalesRule[];
+  onEdit: (rule: SalesRule) => void;
+}) {
+  const [filters, setFilters] = useState({
+    articulo: "",
+    tipo: "",
+    producto: "",
+    factor: "",
+    litros: "",
+  });
+  const filteredRules = rules.filter((rule) =>
+    (!filters.articulo || key(rule.articulo).includes(key(filters.articulo))) &&
+    (!filters.tipo || key(rule.tipo).includes(key(filters.tipo))) &&
+    (!filters.producto || key(rule.producto).includes(key(filters.producto))) &&
+    (!filters.factor || key(number(rule.factor)).includes(key(filters.factor)) || String(rule.factor).includes(filters.factor)) &&
+    (!filters.litros || key(rule.generaLitros ? "Si" : "No").includes(key(filters.litros))),
+  );
+
+  return (
+    <article className="table-card audit-card">
+      <h2>Ventas base</h2>
+      <p>Usa Editar para copiar una regla base a Ventas manuales y poder modificar tipo, producto o factor.</p>
+      <div className="table-wrap audit-table-wrap master-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Articulo</th>
+              <th>Tipo</th>
+              <th>Producto</th>
+              <th>Factor</th>
+              <th>Litros</th>
+              <th>Accion</th>
+            </tr>
+            <tr className="master-filter-row">
+              <th>
+                <input
+                  aria-label="Filtrar articulo venta base"
+                  value={filters.articulo}
+                  onChange={(event) => setFilters((current) => ({ ...current, articulo: event.target.value }))}
+                  placeholder="Filtrar articulo"
+                />
+              </th>
+              <th>
+                <input
+                  aria-label="Filtrar tipo venta base"
+                  value={filters.tipo}
+                  onChange={(event) => setFilters((current) => ({ ...current, tipo: event.target.value }))}
+                  placeholder="Tipo"
+                />
+              </th>
+              <th>
+                <input
+                  aria-label="Filtrar producto venta base"
+                  value={filters.producto}
+                  onChange={(event) => setFilters((current) => ({ ...current, producto: event.target.value }))}
+                  placeholder="Producto"
+                />
+              </th>
+              <th>
+                <input
+                  aria-label="Filtrar factor venta base"
+                  value={filters.factor}
+                  onChange={(event) => setFilters((current) => ({ ...current, factor: event.target.value }))}
+                  placeholder="Factor"
+                />
+              </th>
+              <th>
+                <input
+                  aria-label="Filtrar litros venta base"
+                  value={filters.litros}
+                  onChange={(event) => setFilters((current) => ({ ...current, litros: event.target.value }))}
+                  placeholder="Si/No"
+                />
+              </th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRules.map((rule, index) => (
+              <tr key={`sales-base-${index}`}>
+                <td>{rule.articulo}</td>
+                <td>{rule.tipo}</td>
+                <td>{rule.producto}</td>
+                <td>{number(rule.factor)}</td>
+                <td>{rule.generaLitros ? "Si" : "No"}</td>
+                <td>
+                  <button className="button-secondary compact-table-action" type="button" onClick={() => onEdit(rule)}>
+                    Editar
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {filteredRules.length === 0 ? (
+              <tr>
+                <td colSpan={6}>No hay reglas base de venta para esta busqueda.</td>
               </tr>
             ) : null}
           </tbody>

@@ -1812,6 +1812,16 @@ th {
   width: 18px;
 }
 
+.master-filter-row th {
+  background: rgba(248, 252, 255, 0.98);
+  padding: 8px;
+}
+
+.master-filter-row input {
+  font-size: 0.8rem;
+  padding: 8px 9px;
+}
+
 .compact-table-action {
   padding: 9px 11px;
   white-space: nowrap;
