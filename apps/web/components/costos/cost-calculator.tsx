@@ -232,6 +232,8 @@ const PURCHASE_TYPES = [
   "ADMIN IVA",
   "IMPUESTOS",
   "FABRIL_ELECTRICIDAD",
+  "FABRIL_AGUA",
+  "FABRIL_COMBUSTIBLE",
   "FABRIL_MANTENIMIENTO",
   "FABRIL_INSUMOS",
   "FABRIL_SEGURIDAD",
@@ -318,6 +320,16 @@ const PURCHASE_TYPE_DETAILS: Record<
   FABRIL_ELECTRICIDAD: {
     label: "Fabril electricidad",
     description: "Electricidad e insumos electricos de planta.",
+    impact: "suma costo",
+  },
+  FABRIL_AGUA: {
+    label: "Fabril agua",
+    description: "Agua de planta o servicio de agua asociado a produccion.",
+    impact: "suma costo",
+  },
+  FABRIL_COMBUSTIBLE: {
+    label: "Fabril combustible",
+    description: "Combustible usado en planta para produccion.",
     impact: "suma costo",
   },
   FABRIL_MANTENIMIENTO: {
@@ -507,7 +519,7 @@ const MAY_2026_PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Reparacion muebles y utiles", proveedor: "Sofluc S.A.", tipo: "ADMIN", producto: "Administracion" },
   { articulo: "Tambor x 200 lts.", proveedor: "Corigliano José Luis", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
   { articulo: "Combustible vehiculos", proveedor: "Keh-Com SA", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "Combustible planta", proveedor: "Gastecmor S.A.", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
+  { articulo: "Combustible planta", proveedor: "Gastecmor S.A.", tipo: "FABRIL_COMBUSTIBLE", producto: "Planta" },
   { articulo: "Compras super", proveedor: "Buroni Comercial S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
   { articulo: "Compras super", proveedor: "S.A. Importadora y Exportadora de la Patagonia", tipo: "ADMIN VARIOS", producto: "Administracion" },
   { articulo: "Poliza seguro automotor", proveedor: "Cooperación Mutual Patronal SMSG", tipo: "COSTO FIJO", producto: "Logistica" },
@@ -562,10 +574,10 @@ const PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Servicios web", proveedor: "*", tipo: "ADMIN", producto: "Comercial" },
   { articulo: "Servicio diseno grafico", proveedor: "*", tipo: "ADMIN", producto: "Comercial" },
   { articulo: "Servicio Energia electrica", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
-  { articulo: "Servicio Agua", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
-  { articulo: "Agua", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
+  { articulo: "Servicio Agua", proveedor: "*", tipo: "FABRIL_AGUA", producto: "Planta" },
+  { articulo: "Agua", proveedor: "*", tipo: "FABRIL_AGUA", producto: "Planta" },
   { articulo: "Insumos electricidad", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
-  { articulo: "Combustible planta", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
+  { articulo: "Combustible planta", proveedor: "*", tipo: "FABRIL_COMBUSTIBLE", producto: "Planta" },
   { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "*", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
   { articulo: "Reparacion y mantenimiento galpon", proveedor: "*", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
   { articulo: "Insumos laboratorio", proveedor: "*", tipo: "FABRIL_INSUMOS", producto: "Planta" },
@@ -1334,6 +1346,8 @@ function buildCostModel(
   const costoFabrilTotal =
     params.sueldosProduccion +
     purchaseTotal("FABRIL_ELECTRICIDAD") +
+    purchaseTotal("FABRIL_AGUA") +
+    purchaseTotal("FABRIL_COMBUSTIBLE") +
     purchaseTotal("FABRIL_MANTENIMIENTO") +
     purchaseTotal("FABRIL_INSUMOS") +
     purchaseTotal("FABRIL_SEGURIDAD") +
@@ -2668,6 +2682,8 @@ function FazonPanel({
       ? (params.valorMaquinariaFazonUsd * params.dolarDivisaBna) / (params.vidaUtilMaquinariaFazonAnios * 12)
       : 0;
   const energyRows = purchasesByTypes(["FABRIL_ELECTRICIDAD"]);
+  const waterRows = purchasesByTypes(["FABRIL_AGUA"]);
+  const fuelRows = purchasesByTypes(["FABRIL_COMBUSTIBLE"]);
   const gasRows = purchasesByTypes(["GAS"]);
   const maintenanceRows = purchasesByTypes(["FABRIL_MANTENIMIENTO"]);
   const suppliesRows = purchasesByTypes(["FABRIL_INSUMOS"]);
@@ -2676,7 +2692,9 @@ function FazonPanel({
   const costPoolRows = [
     { label: "Mano de obra produccion", value: params.sueldosProduccion, source: "Manual", purchases: [] },
     { label: "Depreciacion maquinaria", value: depreciationMonthly, source: "Manual USD", purchases: [] },
-    { label: "Energia electrica / agua compras", value: totalPurchases(energyRows), purchases: energyRows },
+    { label: "Energia electrica compras", value: totalPurchases(energyRows), purchases: energyRows },
+    { label: "Agua compras", value: totalPurchases(waterRows), purchases: waterRows },
+    { label: "Combustible de planta compras", value: totalPurchases(fuelRows), purchases: fuelRows },
     { label: "Gas compras", value: totalPurchases(gasRows), purchases: gasRows },
     { label: "Mantenimiento compras", value: totalPurchases(maintenanceRows), purchases: maintenanceRows },
     { label: "Insumos fabriles compras", value: totalPurchases(suppliesRows), purchases: suppliesRows },
