@@ -3675,6 +3675,17 @@ function AllocationMaster({
     setNewPurchaseRule({ articulo: "", proveedor: "*", tipo: "ADMIN", producto: "Administracion" });
   }
 
+  function editBasePurchaseRule(rule: PurchaseRule) {
+    const existingIndex = customPurchaseRules.findIndex(
+      (item) => key(item.articulo) === key(rule.articulo) && key(item.proveedor) === key(rule.proveedor),
+    );
+    if (existingIndex >= 0) {
+      onUpdatePurchase(existingIndex, rule);
+      return;
+    }
+    onAddPurchase(rule);
+  }
+
   function addSalesRule() {
     if (!newSalesRule.articulo.trim()) return;
     onAddSales({
@@ -3985,15 +3996,9 @@ function AllocationMaster({
       </div>
 
       <div className="master-grid">
-        <ReadOnlyRuleTable
-          columns={["Articulo", "Proveedor", "Tipo", "Producto"]}
-          rows={basePurchases.map((rule) => [
-            rule.articulo,
-            rule.proveedor,
-            `${rule.tipo} - ${purchaseTypeName(rule.tipo)}`,
-            rule.producto,
-          ])}
-          title="Compras base"
+        <BasePurchaseRuleTable
+          rules={basePurchases}
+          onEdit={editBasePurchaseRule}
         />
         <ReadOnlyRuleTable
           columns={["Articulo", "Tipo", "Producto", "Factor", "Litros"]}
@@ -4044,6 +4049,54 @@ function ReadOnlyRuleTable({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length}>No hay reglas base para esta busqueda.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  );
+}
+
+function BasePurchaseRuleTable({
+  rules,
+  onEdit,
+}: {
+  rules: PurchaseRule[];
+  onEdit: (rule: PurchaseRule) => void;
+}) {
+  return (
+    <article className="table-card audit-card">
+      <h2>Compras base</h2>
+      <p>Usa Editar para copiar una regla base a Compras manuales y poder modificar tipo o producto.</p>
+      <div className="table-wrap audit-table-wrap master-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Articulo</th>
+              <th>Proveedor</th>
+              <th>Tipo</th>
+              <th>Producto</th>
+              <th>Accion</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rules.map((rule, index) => (
+              <tr key={`purchase-base-${index}`}>
+                <td>{rule.articulo}</td>
+                <td>{rule.proveedor}</td>
+                <td>{`${rule.tipo} - ${purchaseTypeName(rule.tipo)}`}</td>
+                <td>{rule.producto}</td>
+                <td>
+                  <button className="button-secondary compact-table-action" type="button" onClick={() => onEdit(rule)}>
+                    Editar
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {rules.length === 0 ? (
+              <tr>
+                <td colSpan={5}>No hay reglas base de compra para esta busqueda.</td>
               </tr>
             ) : null}
           </tbody>
