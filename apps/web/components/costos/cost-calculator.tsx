@@ -3616,6 +3616,7 @@ function AllocationMaster({
   onUpdateSales: (index: number, rule: SalesRule) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [masterMessage, setMasterMessage] = useState("");
   const [newPurchaseRule, setNewPurchaseRule] = useState<PurchaseRule>({
     articulo: "",
     proveedor: "*",
@@ -3679,20 +3680,16 @@ function AllocationMaster({
     const existingIndex = customPurchaseRules.findIndex(
       (item) => key(item.articulo) === key(rule.articulo) && key(item.proveedor) === key(rule.proveedor),
     );
-    if (existingIndex >= 0) {
-      onUpdatePurchase(existingIndex, rule);
-      return;
-    }
-    onAddPurchase(rule);
+    if (existingIndex < 0) onAddPurchase(rule);
+    setSearch(rule.articulo);
+    setMasterMessage("La regla se copio a Compras manuales. Edita ahi el tipo o producto para cambiar la imputacion.");
   }
 
   function editBaseSalesRule(rule: SalesRule) {
     const existingIndex = customSalesRules.findIndex((item) => key(item.articulo) === key(rule.articulo));
-    if (existingIndex >= 0) {
-      onUpdateSales(existingIndex, rule);
-      return;
-    }
-    onAddSales(rule);
+    if (existingIndex < 0) onAddSales(rule);
+    setSearch(rule.articulo);
+    setMasterMessage("La regla se copio a Ventas manuales. Edita ahi el tipo, producto, factor o litros.");
   }
 
   function addSalesRule() {
@@ -3731,6 +3728,12 @@ function AllocationMaster({
           />
         </label>
       </div>
+
+      {masterMessage ? (
+        <div className="message success">
+          {masterMessage}
+        </div>
+      ) : null}
 
       <div className="master-summary-grid">
         <article className="master-summary-card">
