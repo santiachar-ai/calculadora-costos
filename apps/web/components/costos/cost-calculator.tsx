@@ -11,6 +11,11 @@ type PurchaseRule = {
   proveedor: string;
   tipo: string;
   producto: string;
+  centroCosto?: string;
+  objetoCosto?: string;
+  criterioDistribucion?: string;
+  incluyeEnCosto?: boolean;
+  observacion?: string;
 };
 
 type SalesRule = {
@@ -408,6 +413,55 @@ const PURCHASE_PRODUCTS = [
   "IF Fazon",
 ];
 
+const COST_CENTERS = [
+  "Produccion",
+  "Fazon IF",
+  "Deposito",
+  "Comercial",
+  "Administracion",
+  "Logistica",
+  "Financiero",
+  "Empresa",
+  "Control",
+  "Envases",
+  "Inversion",
+  "Revisar",
+];
+
+const COST_OBJECTS = [
+  "Solucion 32,5",
+  "Solucion industrial",
+  "Urea",
+  "OptiBlue",
+  "Fazon IF 32,5",
+  "Fazon IF industrial",
+  "Almacenaje",
+  "Produccion propia",
+  "Comercial",
+  "Administracion",
+  "Logistica",
+  "Empresa",
+  "Control",
+  "Envases",
+  "Financiero",
+  "No aplica",
+  "Revisar",
+];
+
+const DISTRIBUTION_CRITERIA = [
+  "Directo",
+  "Litros producidos",
+  "Toneladas producidas",
+  "Horas hombre",
+  "Horas maquina",
+  "Remitos",
+  "m2/dias almacenamiento",
+  "Ventas",
+  "Manual",
+  "No aplica",
+  "Revisar",
+];
+
 const SALES_TYPES = ["PRODUCTO", "SERVICIO", "ACCESORIO", "OTROS"];
 type CostView = "calculo" | "kpis" | "revisiones" | "imputacion" | "maestro";
 
@@ -684,6 +738,64 @@ function purchaseTypeName(tipo: string) {
 function purchaseTypeOptionLabel(tipo: string) {
   const detail = PURCHASE_TYPE_DETAILS[tipo];
   return detail ? `${tipo} - ${detail.label}` : tipo;
+}
+
+function inferCostCenter(tipo: string, producto: string) {
+  if (producto === "IF Fazon" || producto === "IF_FAZON_325" || producto === "IF_FAZON_IND" || tipo.includes("IF")) {
+    return "Fazon IF";
+  }
+  if (tipo.startsWith("FABRIL") || ["MP", "MP_FLETE", "GAS"].includes(tipo)) return "Produccion";
+  if (tipo.startsWith("LOGISTICA") || tipo === "FLETE") return "Logistica";
+  if (tipo.startsWith("ADMIN") || producto === "Administracion") return "Administracion";
+  if (tipo === "GASTO_COMERCIAL" || producto === "Comercial") return "Comercial";
+  if (tipo === "RESULTADO_FINANCIERO" || producto === "Financiero") return "Financiero";
+  if (tipo === "INVERSION") return "Inversion";
+  if (["INSUMO_CONTROL", "ENVASE_CONTROL", "ETIQUETA_CONTROL"].includes(tipo) || producto === "Control") return "Control";
+  if (tipo === "ACCESORIO_COMPRA" || producto === "Envases") return "Envases";
+  if (tipo === "NO_COSTO") return "Empresa";
+  return "Revisar";
+}
+
+function inferCostObject(tipo: string, producto: string) {
+  if (producto === "IF Fazon" || producto === "IF_FAZON_325") return "Fazon IF 32,5";
+  if (producto === "IF_FAZON_IND") return "Fazon IF industrial";
+  if (producto === "Industrial" || producto === "INDUSTRIAL") return "Solucion industrial";
+  if (producto === "OptiBlue" || producto.startsWith("OPTIBLUE")) return "Solucion 32,5";
+  if (tipo === "MP" && key(producto).includes("UREA")) return "Urea";
+  if (producto === "Comercial") return "Comercial";
+  if (producto === "Administracion") return "Administracion";
+  if (producto === "Logistica") return "Logistica";
+  if (producto === "Control") return "Control";
+  if (producto === "Envases") return "Envases";
+  if (producto === "Financiero" || tipo === "RESULTADO_FINANCIERO") return "Financiero";
+  if (["NO_COSTO", "INVERSION"].includes(tipo)) return "No aplica";
+  return "Produccion propia";
+}
+
+function inferDistributionCriteria(tipo: string, producto: string) {
+  if (["NO_COSTO", "INVERSION", "RESULTADO_FINANCIERO"].includes(tipo)) return "No aplica";
+  if (producto === "IF Fazon" || producto === "IF_FAZON_325" || producto === "IF_FAZON_IND") return "Toneladas producidas";
+  if (["MP", "MP_FLETE", "FLETE", "GASTO_COMERCIAL", "COMISION_IF", "LOGISTICA_COMB", "LOGISTICA"].includes(tipo)) {
+    return "Directo";
+  }
+  if (tipo.startsWith("FABRIL") || tipo === "GAS" || tipo === "COSTO FIJO") return "Litros producidos";
+  if (tipo.startsWith("ADMIN") || tipo === "IMPUESTOS") return "Ventas";
+  return "Revisar";
+}
+
+function purchaseRuleWithManagement(rule: PurchaseRule): PurchaseRule {
+  const centroCosto = rule.centroCosto || inferCostCenter(rule.tipo, rule.producto);
+  const objetoCosto = rule.objetoCosto || inferCostObject(rule.tipo, rule.producto);
+  const criterioDistribucion = rule.criterioDistribucion || inferDistributionCriteria(rule.tipo, rule.producto);
+  const impact = PURCHASE_TYPE_DETAILS[rule.tipo]?.impact;
+  return {
+    ...rule,
+    centroCosto,
+    objetoCosto,
+    criterioDistribucion,
+    incluyeEnCosto: rule.incluyeEnCosto ?? (impact !== "fuera del costo"),
+    observacion: rule.observacion ?? "",
+  };
 }
 
 function money(value: number) {
@@ -2139,10 +2251,11 @@ export function CostCalculator() {
   }
 
   function savePurchaseRule(rule: PurchaseRule) {
+    const normalizedRule = purchaseRuleWithManagement(rule);
     setCustomPurchaseRules((current) => [
-      rule,
+      normalizedRule,
       ...current.filter(
-        (item) => key(item.articulo) !== key(rule.articulo) || key(item.proveedor) !== key(rule.proveedor),
+        (item) => key(item.articulo) !== key(normalizedRule.articulo) || key(item.proveedor) !== key(normalizedRule.proveedor),
       ),
     ]);
   }
@@ -2155,7 +2268,9 @@ export function CostCalculator() {
   }
 
   function updatePurchaseRule(index: number, rule: PurchaseRule) {
-    setCustomPurchaseRules((current) => current.map((item, itemIndex) => (itemIndex === index ? rule : item)));
+    setCustomPurchaseRules((current) =>
+      current.map((item, itemIndex) => (itemIndex === index ? purchaseRuleWithManagement(rule) : item)),
+    );
   }
 
   function updateSalesRule(index: number, rule: SalesRule) {
@@ -3410,12 +3525,12 @@ function AllocationAudit({
     model.purchases
       .filter((row) => row.tipo !== "REVISAR")
       .forEach((row) => {
-        purchaseRules.set(`${key(row.articulo)}|${key(row.proveedor)}`, {
+        purchaseRules.set(`${key(row.articulo)}|${key(row.proveedor)}`, purchaseRuleWithManagement({
           articulo: row.articulo,
           proveedor: row.proveedor || "*",
           tipo: row.tipo,
           producto: row.producto,
-        });
+        }));
       });
 
     const salesRules = new Map<string, SalesRule>();
@@ -3451,15 +3566,28 @@ function AllocationAudit({
       { Indicador: "Resultado core", Valor: model.kpis.resultadoCore },
     ];
 
-    const purchaseRows = purchaseAudit.map((row) => ({
-      Articulo: row.articulo,
-      Proveedor: row.proveedor || "",
-      Tipo: row.tipo,
-      Producto: row.producto,
-      Filas: row.count,
-      Total_Neto: row.total,
-      Estado: row.tipo === "REVISAR" ? "REVISAR" : "IMPUTADO",
-    }));
+    const purchaseRows = purchaseAudit.map((row) => {
+      const managedRule = purchaseRuleWithManagement({
+        articulo: row.articulo,
+        proveedor: row.proveedor || "*",
+        tipo: row.tipo,
+        producto: row.producto,
+      });
+      return {
+        Articulo: row.articulo,
+        Proveedor: row.proveedor || "",
+        Tipo: row.tipo,
+        Producto: row.producto,
+        Centro_Costo: managedRule.centroCosto,
+        Objeto_Costo: managedRule.objetoCosto,
+        Criterio_Distribucion: managedRule.criterioDistribucion,
+        Incluye_En_Costo: managedRule.incluyeEnCosto ? "Si" : "No",
+        Observacion: managedRule.observacion,
+        Filas: row.count,
+        Total_Neto: row.total,
+        Estado: row.tipo === "REVISAR" ? "REVISAR" : "IMPUTADO",
+      };
+    });
 
     const salesRows = salesAudit.map((row) => ({
       Articulo: row.articulo,
@@ -3640,6 +3768,11 @@ function AllocationMaster({
     proveedor: "*",
     tipo: "ADMIN",
     producto: "Administracion",
+    centroCosto: "Administracion",
+    objetoCosto: "Administracion",
+    criterioDistribucion: "Ventas",
+    incluyeEnCosto: true,
+    observacion: "",
   });
   const [newSalesRule, setNewSalesRule] = useState<SalesRule>({
     articulo: "",
@@ -3658,11 +3791,30 @@ function AllocationMaster({
     !normalizedSearch || values.some((value) => key(value).includes(normalizedSearch));
 
   const manualPurchases = customPurchaseRules
-    .map((rule, index) => ({ index, rule }))
-    .filter(({ rule }) => matches([rule.articulo, rule.proveedor, rule.tipo, rule.producto]));
+    .map((rule, index) => ({ index, rule: purchaseRuleWithManagement(rule) }))
+    .filter(({ rule }) =>
+      matches([
+        rule.articulo,
+        rule.proveedor,
+        rule.tipo,
+        rule.producto,
+        rule.centroCosto ?? "",
+        rule.objetoCosto ?? "",
+        rule.criterioDistribucion ?? "",
+        rule.observacion ?? "",
+      ]),
+    );
   const basePurchases = PURCHASE_RULES.filter((rule) =>
-    matches([rule.articulo, rule.proveedor, rule.tipo, rule.producto]),
-  );
+    matches([
+      rule.articulo,
+      rule.proveedor,
+      rule.tipo,
+      rule.producto,
+      inferCostCenter(rule.tipo, rule.producto),
+      inferCostObject(rule.tipo, rule.producto),
+      inferDistributionCriteria(rule.tipo, rule.producto),
+    ]),
+  ).map(purchaseRuleWithManagement);
   const manualSales = customSalesRules
     .map((rule, index) => ({ index, rule }))
     .filter(({ rule }) => matches([rule.articulo, rule.tipo, rule.producto]));
@@ -3686,21 +3838,31 @@ function AllocationMaster({
 
   function addPurchaseRule() {
     if (!newPurchaseRule.articulo.trim()) return;
-    onAddPurchase({
+    onAddPurchase(purchaseRuleWithManagement({
       ...newPurchaseRule,
       articulo: newPurchaseRule.articulo.trim(),
       proveedor: newPurchaseRule.proveedor.trim() || "*",
+    }));
+    setNewPurchaseRule({
+      articulo: "",
+      proveedor: "*",
+      tipo: "ADMIN",
+      producto: "Administracion",
+      centroCosto: "Administracion",
+      objetoCosto: "Administracion",
+      criterioDistribucion: "Ventas",
+      incluyeEnCosto: true,
+      observacion: "",
     });
-    setNewPurchaseRule({ articulo: "", proveedor: "*", tipo: "ADMIN", producto: "Administracion" });
   }
 
   function editBasePurchaseRule(rule: PurchaseRule) {
     const existingIndex = customPurchaseRules.findIndex(
       (item) => key(item.articulo) === key(rule.articulo) && key(item.proveedor) === key(rule.proveedor),
     );
-    if (existingIndex < 0) onAddPurchase(rule);
+    if (existingIndex < 0) onAddPurchase(purchaseRuleWithManagement(rule));
     setSearch(rule.articulo);
-    setMasterMessage("La regla se copio a Compras manuales. Edita ahi el tipo o producto para cambiar la imputacion.");
+    setMasterMessage("La regla se copio a Compras manuales. Edita ahi tipo, centro, objeto o criterio para cambiar la imputacion.");
   }
 
   function editBaseSalesRule(rule: SalesRule) {
@@ -3722,6 +3884,17 @@ function AllocationMaster({
       producto: "OPTIBLUE_IBC",
       generaLitros: true,
       factor: 1,
+    });
+  }
+
+  function patchPurchaseRule(rule: PurchaseRule, patch: Partial<PurchaseRule>) {
+    const shouldReinfer = patch.tipo !== undefined || patch.producto !== undefined;
+    return purchaseRuleWithManagement({
+      ...rule,
+      ...patch,
+      centroCosto: shouldReinfer ? "" : patch.centroCosto ?? rule.centroCosto,
+      objetoCosto: shouldReinfer ? "" : patch.objetoCosto ?? rule.objetoCosto,
+      criterioDistribucion: shouldReinfer ? "" : patch.criterioDistribucion ?? rule.criterioDistribucion,
     });
   }
 
@@ -3845,6 +4018,11 @@ function AllocationMaster({
                   <th>Proveedor</th>
                   <th>Tipo</th>
                   <th>Producto</th>
+                  <th>Centro</th>
+                  <th>Objeto</th>
+                  <th>Criterio</th>
+                  <th>Incluye</th>
+                  <th>Observacion</th>
                   <th>Accion</th>
                 </tr>
               </thead>
@@ -3854,19 +4032,19 @@ function AllocationMaster({
                     <td>
                       <input
                         value={rule.articulo}
-                        onChange={(event) => onUpdatePurchase(index, { ...rule, articulo: event.target.value })}
+                        onChange={(event) => onUpdatePurchase(index, patchPurchaseRule(rule, { articulo: event.target.value }))}
                       />
                     </td>
                     <td>
                       <input
                         value={rule.proveedor}
-                        onChange={(event) => onUpdatePurchase(index, { ...rule, proveedor: event.target.value })}
+                        onChange={(event) => onUpdatePurchase(index, patchPurchaseRule(rule, { proveedor: event.target.value }))}
                       />
                     </td>
                     <td>
                       <select
                         value={rule.tipo}
-                        onChange={(event) => onUpdatePurchase(index, { ...rule, tipo: event.target.value })}
+                        onChange={(event) => onUpdatePurchase(index, patchPurchaseRule(rule, { tipo: event.target.value }))}
                       >
                         {PURCHASE_TYPES.map((option) => (
                           <option key={option} value={option}>{purchaseTypeOptionLabel(option)}</option>
@@ -3877,12 +4055,58 @@ function AllocationMaster({
                     <td>
                       <select
                         value={rule.producto}
-                        onChange={(event) => onUpdatePurchase(index, { ...rule, producto: event.target.value })}
+                        onChange={(event) => onUpdatePurchase(index, patchPurchaseRule(rule, { producto: event.target.value }))}
                       >
                         {purchaseProductOptions.map((option) => (
                           <option key={option} value={option}>{option}</option>
                         ))}
                       </select>
+                    </td>
+                    <td>
+                      <select
+                        value={rule.centroCosto}
+                        onChange={(event) => onUpdatePurchase(index, patchPurchaseRule(rule, { centroCosto: event.target.value }))}
+                      >
+                        {COST_CENTERS.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        value={rule.objetoCosto}
+                        onChange={(event) => onUpdatePurchase(index, patchPurchaseRule(rule, { objetoCosto: event.target.value }))}
+                      >
+                        {COST_OBJECTS.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        value={rule.criterioDistribucion}
+                        onChange={(event) =>
+                          onUpdatePurchase(index, patchPurchaseRule(rule, { criterioDistribucion: event.target.value }))
+                        }
+                      >
+                        {DISTRIBUTION_CRITERIA.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={rule.incluyeEnCosto ?? true}
+                        onChange={(event) => onUpdatePurchase(index, patchPurchaseRule(rule, { incluyeEnCosto: event.target.checked }))}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        value={rule.observacion ?? ""}
+                        onChange={(event) => onUpdatePurchase(index, patchPurchaseRule(rule, { observacion: event.target.value }))}
+                        placeholder="Criterio o excepcion"
+                      />
                     </td>
                     <td>
                       <button className="button-secondary compact-table-action" type="button" onClick={() => onDeletePurchase(index)}>
@@ -3893,7 +4117,7 @@ function AllocationMaster({
                 ))}
                 {manualPurchases.length === 0 ? (
                   <tr>
-                    <td colSpan={5}>No hay reglas manuales de compra para esta busqueda.</td>
+                    <td colSpan={10}>No hay reglas manuales de compra para esta busqueda.</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -4093,12 +4317,20 @@ function BasePurchaseRuleTable({
     proveedor: "",
     tipo: "",
     producto: "",
+    centroCosto: "",
+    objetoCosto: "",
+    criterioDistribucion: "",
+    incluyeEnCosto: "",
   });
   const filteredRules = rules.filter((rule) =>
     (!filters.articulo || key(rule.articulo).includes(key(filters.articulo))) &&
     (!filters.proveedor || key(rule.proveedor).includes(key(filters.proveedor))) &&
     (!filters.tipo || key(rule.tipo).includes(key(filters.tipo)) || key(purchaseTypeName(rule.tipo)).includes(key(filters.tipo))) &&
-    (!filters.producto || key(rule.producto).includes(key(filters.producto))),
+    (!filters.producto || key(rule.producto).includes(key(filters.producto))) &&
+    (!filters.centroCosto || key(rule.centroCosto).includes(key(filters.centroCosto))) &&
+    (!filters.objetoCosto || key(rule.objetoCosto).includes(key(filters.objetoCosto))) &&
+    (!filters.criterioDistribucion || key(rule.criterioDistribucion).includes(key(filters.criterioDistribucion))) &&
+    (!filters.incluyeEnCosto || key(rule.incluyeEnCosto ? "Si" : "No").includes(key(filters.incluyeEnCosto))),
   );
 
   return (
@@ -4113,6 +4345,10 @@ function BasePurchaseRuleTable({
               <th>Proveedor</th>
               <th>Tipo</th>
               <th>Producto</th>
+              <th>Centro</th>
+              <th>Objeto</th>
+              <th>Criterio</th>
+              <th>Incluye</th>
               <th>Accion</th>
             </tr>
             <tr className="master-filter-row">
@@ -4148,6 +4384,38 @@ function BasePurchaseRuleTable({
                   placeholder="Producto"
                 />
               </th>
+              <th>
+                <input
+                  aria-label="Filtrar centro de costo compra base"
+                  value={filters.centroCosto}
+                  onChange={(event) => setFilters((current) => ({ ...current, centroCosto: event.target.value }))}
+                  placeholder="Centro"
+                />
+              </th>
+              <th>
+                <input
+                  aria-label="Filtrar objeto de costo compra base"
+                  value={filters.objetoCosto}
+                  onChange={(event) => setFilters((current) => ({ ...current, objetoCosto: event.target.value }))}
+                  placeholder="Objeto"
+                />
+              </th>
+              <th>
+                <input
+                  aria-label="Filtrar criterio compra base"
+                  value={filters.criterioDistribucion}
+                  onChange={(event) => setFilters((current) => ({ ...current, criterioDistribucion: event.target.value }))}
+                  placeholder="Criterio"
+                />
+              </th>
+              <th>
+                <input
+                  aria-label="Filtrar incluye compra base"
+                  value={filters.incluyeEnCosto}
+                  onChange={(event) => setFilters((current) => ({ ...current, incluyeEnCosto: event.target.value }))}
+                  placeholder="Si/No"
+                />
+              </th>
               <th />
             </tr>
           </thead>
@@ -4158,6 +4426,10 @@ function BasePurchaseRuleTable({
                 <td>{rule.proveedor}</td>
                 <td>{`${rule.tipo} - ${purchaseTypeName(rule.tipo)}`}</td>
                 <td>{rule.producto}</td>
+                <td>{rule.centroCosto}</td>
+                <td>{rule.objetoCosto}</td>
+                <td>{rule.criterioDistribucion}</td>
+                <td>{rule.incluyeEnCosto ? "Si" : "No"}</td>
                 <td>
                   <button className="button-secondary compact-table-action" type="button" onClick={() => onEdit(rule)}>
                     Editar
@@ -4167,7 +4439,7 @@ function BasePurchaseRuleTable({
             ))}
             {filteredRules.length === 0 ? (
               <tr>
-                <td colSpan={5}>No hay reglas base de compra para esta busqueda.</td>
+                <td colSpan={9}>No hay reglas base de compra para esta busqueda.</td>
               </tr>
             ) : null}
           </tbody>
