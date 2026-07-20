@@ -1110,6 +1110,25 @@ th {
   margin: 0 16px 16px;
 }
 
+.indirectos-disclosure {
+  margin-top: 4px;
+}
+
+.indirectos-group-note {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  font-size: 0.84rem;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 16px;
+}
+
+.indirectos-group-note strong {
+  color: var(--text);
+}
+
 .fazon-remitos {
   margin-top: 18px;
 }

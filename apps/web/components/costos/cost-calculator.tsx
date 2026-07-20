@@ -167,6 +167,14 @@ type CostInsights = {
   risks: CostRisk[];
 };
 
+type CostBreakdownGroup = {
+  label: string;
+  value: number;
+  perLiter: number;
+  purchases: PurchaseRow[];
+  source?: string;
+};
+
 type CostModel = {
   purchases: PurchaseRow[];
   sales: SaleRow[];
@@ -183,6 +191,11 @@ type CostModel = {
   };
   costDrivers: ProductCostDrivers[];
   insights: CostInsights;
+  indirectosGestion: {
+    total: number;
+    perLiter: number;
+    groups: CostBreakdownGroup[];
+  };
   kpis: {
     litrosTotales: number;
     facturacionAnalizada: number;
@@ -1676,14 +1689,16 @@ function buildCostModel(
   const facturacionAnalizada = products.reduce((total, row) => total + row.facturacion, 0);
   const facturacionTotal = sales.reduce((total, row) => total + row.total, 0);
   const resultadoIndustrial = products.reduce((total, row) => total + row.margenTotal, 0);
+  const purchasesByTypes = (tipos: string[]) => purchases.filter((row) => tipos.includes(row.tipo));
+  const totalPurchaseRows = (rows: PurchaseRow[]) => rows.reduce((total, row) => total + row.total, 0);
+  const adminRows = purchasesByTypes(["ADMIN", "ADMIN VARIOS", "ADMIN IVA", "IMPUESTOS"]);
+  const commercialRows = purchasesByTypes(["GASTO_COMERCIAL"]);
+  const fixedCostRows = purchasesByTypes(["COSTO FIJO"]);
   const gastosAdmin =
     params.sueldosAdmin +
-    purchaseTotal("ADMIN") +
-    purchaseTotal("ADMIN VARIOS") +
-    purchaseTotal("ADMIN IVA") +
-    purchaseTotal("IMPUESTOS");
-  const gastosComerciales = purchaseTotal("GASTO_COMERCIAL");
-  const costosFijos = purchaseTotal("COSTO FIJO");
+    totalPurchaseRows(adminRows);
+  const gastosComerciales = totalPurchaseRows(commercialRows);
+  const costosFijos = totalPurchaseRows(fixedCostRows);
   const resultadoCore = resultadoIndustrial - gastosAdmin - gastosComerciales - costosFijos;
   const margenEquilibrioLitro = litrosTotales ? resultadoIndustrial / litrosTotales : 0;
   const puntoEquilibrioLitros =
@@ -1693,6 +1708,29 @@ function buildCostModel(
   const indirectosGestionLitro = litrosTotales
     ? (gastosAdmin + gastosComerciales + costosFijos) / litrosTotales
     : 0;
+  const indirectosGestionGroups: CostBreakdownGroup[] = [
+    {
+      label: "Administracion y estructura",
+      value: gastosAdmin,
+      perLiter: litrosTotales ? gastosAdmin / litrosTotales : 0,
+      purchases: adminRows,
+      source: "Compras + sueldos admin manuales",
+    },
+    {
+      label: "Comercial",
+      value: gastosComerciales,
+      perLiter: litrosTotales ? gastosComerciales / litrosTotales : 0,
+      purchases: commercialRows,
+      source: "Compras",
+    },
+    {
+      label: "Costos fijos",
+      value: costosFijos,
+      perLiter: litrosTotales ? costosFijos / litrosTotales : 0,
+      purchases: fixedCostRows,
+      source: "Compras",
+    },
+  ];
 
   const productCostComponents = (row: ProductResult) => {
     const iibb = row.precioLitro * params.iibbPct;
@@ -1896,6 +1934,11 @@ function buildCostModel(
     fazon,
     costDrivers,
     insights,
+    indirectosGestion: {
+      total: gastosAdmin + gastosComerciales + costosFijos,
+      perLiter: indirectosGestionLitro,
+      groups: indirectosGestionGroups,
+    },
     kpis: {
       litrosTotales,
       facturacionAnalizada,
@@ -3343,6 +3386,61 @@ function CostDriversPanel({ model }: { model: CostModel }) {
           </div>
         </article>
       </div>
+
+      <details className="remitos-disclosure indirectos-disclosure">
+        <summary>
+          <span>Ver composicion de indirectos gestion</span>
+          <strong>{money(model.indirectosGestion.total)} total - {money(model.indirectosGestion.perLiter)} / L</strong>
+        </summary>
+        <div className="cost-breakdown-list">
+          {model.indirectosGestion.groups.map((group) => (
+            <details className="cost-breakdown-item" key={group.label}>
+              <summary>
+                <span>{group.label}</span>
+                <strong>{money(group.value)} - {money(group.perLiter)} / L</strong>
+              </summary>
+              <div className="indirectos-group-note">
+                <span>{group.source ?? "Compras"}</span>
+                <strong>{number(group.purchases.length)} comprobantes/articulos</strong>
+              </div>
+              {group.purchases.length ? (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Comprobante</th>
+                        <th>Proveedor</th>
+                        <th>Articulo</th>
+                        <th>Tipo</th>
+                        <th>Producto</th>
+                        <th>Importe</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.purchases.map((purchase, index) => (
+                        <tr key={`${group.label}-${purchase.comprobante}-${purchase.articulo}-${index}`}>
+                          <td>{purchase.comprobante || "-"}</td>
+                          <td>{purchase.proveedor || "-"}</td>
+                          <td><strong>{purchase.articulo || "-"}</strong></td>
+                          <td>{purchase.tipo}</td>
+                          <td>{purchase.producto}</td>
+                          <td>{money(purchase.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="empty-state">
+                  {group.label === "Administracion y estructura"
+                    ? "Este grupo puede incluir sueldos administrativos cargados manualmente aunque no haya compras."
+                    : "No hay compras imputadas a este grupo."}
+                </div>
+              )}
+            </details>
+          ))}
+        </div>
+      </details>
 
       <div className="driver-grid">
         {visibleProducts.map((product) => (
