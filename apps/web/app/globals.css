@@ -1020,6 +1020,60 @@ th {
   gap: 12px;
 }
 
+.data-quality-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.data-quality-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.72);
+  display: grid;
+  gap: 7px;
+  padding: 13px;
+}
+
+.data-quality-card span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.data-quality-card p {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.quality-status {
+  border-radius: 999px;
+  justify-self: start;
+  padding: 5px 9px;
+  font-size: 0.76rem;
+  line-height: 1;
+}
+
+.quality-status.Confiable {
+  background: rgba(38, 115, 91, 0.13);
+  color: var(--success);
+}
+
+.quality-status.Estimado {
+  background: rgba(227, 166, 60, 0.16);
+  color: #966318;
+}
+
+.quality-status.Revisar,
+.quality-status.No-disponible {
+  background: rgba(186, 76, 68, 0.12);
+  color: #963b35;
+}
+
 .cost-breakdown-list {
   border-top: 1px solid var(--line);
   display: grid;
@@ -1861,6 +1915,7 @@ th {
   .driver-metrics,
   .fazon-summary,
   .fazon-cost-grid,
+  .data-quality-grid,
   .remito-control-grid,
   .remito-client-list div,
   .master-add-row.purchase,

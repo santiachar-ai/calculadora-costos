@@ -240,6 +240,8 @@ const PURCHASE_TYPES = [
   "FABRIL_AGUA",
   "FABRIL_COMBUSTIBLE",
   "FABRIL_MANTENIMIENTO",
+  "FABRIL_CONTROL_CALIDAD",
+  "FABRIL_LIMPIEZA",
   "FABRIL_INSUMOS",
   "FABRIL_SEGURIDAD",
   "COSTO FIJO",
@@ -340,6 +342,16 @@ const PURCHASE_TYPE_DETAILS: Record<
   FABRIL_MANTENIMIENTO: {
     label: "Fabril mantenimiento",
     description: "Mantenimiento de maquinaria, galpon o instalaciones productivas.",
+    impact: "suma costo",
+  },
+  FABRIL_CONTROL_CALIDAD: {
+    label: "Fabril control de calidad",
+    description: "Analisis, laboratorio, muestras y trazabilidad asociados a produccion.",
+    impact: "suma costo",
+  },
+  FABRIL_LIMPIEZA: {
+    label: "Fabril limpieza",
+    description: "Limpieza operativa de planta, tanques, linea o area productiva.",
     impact: "suma costo",
   },
   FABRIL_INSUMOS: {
@@ -543,7 +555,7 @@ const MAY_2026_PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "MG Ballester SRL", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
   { articulo: "Calcomanias 23cm x 30cm + laca", proveedor: "Gomez Juan María", tipo: "ETIQUETA_CONTROL", producto: "OptiBlue" },
   { articulo: "Insumos electricidad", proveedor: "Electricidad Total S.A.", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
-  { articulo: "Insumos laboratorio", proveedor: "INSTRUMENTAL PASTEUR SRL", tipo: "FABRIL_INSUMOS", producto: "Planta" },
+  { articulo: "Insumos laboratorio", proveedor: "INSTRUMENTAL PASTEUR SRL", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
   { articulo: "Insumos ferretería", proveedor: "Fontana Jorge Eduardo y Sicolone Gerardo Oscar", tipo: "FABRIL_INSUMOS", producto: "Planta" },
   { articulo: "Viaticos peaje", proveedor: "Grupo Concesionario del Oeste S.A.", tipo: "LOGISTICA", producto: "OptiBlue" },
   { articulo: "Impuestos internos", proveedor: "S.A. Importadora y Exportadora de la Patagonia", tipo: "IMPUESTOS", producto: "Empresa" },
@@ -565,7 +577,7 @@ const MAY_2026_PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Combustibles varios", proveedor: "Casares Combustibles S.R.L", tipo: "ADMIN VARIOS", producto: "Administracion" },
   { articulo: "Mercaderia en general", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "ADMIN VARIOS", producto: "Administracion" },
   { articulo: "Viandas", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "Analisis quimicos", proveedor: "SGS Argentina S.A.", tipo: "FABRIL_INSUMOS", producto: "Planta" },
+  { articulo: "Analisis quimicos", proveedor: "SGS Argentina S.A.", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
   { articulo: "Fletes varios", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "FLETE", producto: "Industrial" },
   { articulo: "MUEBLES Y UTILES", proveedor: "Electrónica Megatone SRL", tipo: "ADMIN", producto: "Administracion" },
   { articulo: "Combustible vehiculos", proveedor: "Gastecmor S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
@@ -601,7 +613,7 @@ const MAY_2026_PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Servicio Internet", proveedor: "Coop. Elect. Integral de Prov. de Serv. Pub. y Soc. de Todd Ltda", tipo: "ADMIN", producto: "Administracion" },
   { articulo: "Pesada balanza municipal", proveedor: "A.P.R.A.", tipo: "LOGISTICA", producto: "Logistica" },
   { articulo: "Compras super", proveedor: "Productos Alimenticios S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "Productos de Limpieza", proveedor: "Marillet Oscar Luis", tipo: "FABRIL_INSUMOS", producto: "Planta" },
+  { articulo: "Productos de Limpieza", proveedor: "Marillet Oscar Luis", tipo: "FABRIL_LIMPIEZA", producto: "Planta" },
   { articulo: "Mantenimiento extintores", proveedor: "García Carlos Alberto", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
   { articulo: "Servicio telefono", proveedor: "Coop. Elect. Integral de Prov. de Serv. Pub. y Soc. de Todd Ltda", tipo: "ADMIN", producto: "Administracion" },
   { articulo: "Descuento recibido x pago en termino", proveedor: "Vigo Carlos A. y Bellfiore Nora M.", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
@@ -634,8 +646,9 @@ const PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Combustible planta", proveedor: "*", tipo: "FABRIL_COMBUSTIBLE", producto: "Planta" },
   { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "*", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
   { articulo: "Reparacion y mantenimiento galpon", proveedor: "*", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
-  { articulo: "Insumos laboratorio", proveedor: "*", tipo: "FABRIL_INSUMOS", producto: "Planta" },
-  { articulo: "Productos de Limpieza", proveedor: "*", tipo: "FABRIL_INSUMOS", producto: "Planta" },
+  { articulo: "Insumos laboratorio", proveedor: "*", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
+  { articulo: "Analisis quimicos", proveedor: "*", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
+  { articulo: "Productos de Limpieza", proveedor: "*", tipo: "FABRIL_LIMPIEZA", producto: "Planta" },
   { articulo: "Insumos ferreteria", proveedor: "*", tipo: "FABRIL_INSUMOS", producto: "Planta" },
   { articulo: "SERVICIO AREA PROTEGIDA", proveedor: "*", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
   { articulo: "Reparacion y mantenimiento camion", proveedor: "*", tipo: "COSTO FIJO", producto: "Logistica" },
@@ -651,9 +664,9 @@ const PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Tarima de madera", proveedor: "*", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
   { articulo: "Calcomanias 15cm x 15cm + laca", proveedor: "*", tipo: "ETIQUETA_CONTROL", producto: "OptiBlue" },
   { articulo: "Calcomanias 23cm x 30cm + laca", proveedor: "*", tipo: "ETIQUETA_CONTROL", producto: "OptiBlue" },
-  { articulo: "Tapa Botella PET muestras 500cc", proveedor: "*", tipo: "INSUMO_CONTROL", producto: "Control" },
-  { articulo: "Botella PET muestras 500cc", proveedor: "*", tipo: "INSUMO_CONTROL", producto: "Control" },
-  { articulo: "Precinto alpine amarillo/verde x1000 u.", proveedor: "*", tipo: "INSUMO_CONTROL", producto: "Control" },
+  { articulo: "Tapa Botella PET muestras 500cc", proveedor: "*", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
+  { articulo: "Botella PET muestras 500cc", proveedor: "*", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
+  { articulo: "Precinto alpine amarillo/verde x1000 u.", proveedor: "*", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
   { articulo: "Diferencia de Cambio", proveedor: "*", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
   { articulo: "Ajuste tipo de cambio", proveedor: "*", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
 ];
@@ -1461,6 +1474,8 @@ function buildCostModel(
     purchaseTotal("FABRIL_AGUA") +
     purchaseTotal("FABRIL_COMBUSTIBLE") +
     purchaseTotal("FABRIL_MANTENIMIENTO") +
+    purchaseTotal("FABRIL_CONTROL_CALIDAD") +
+    purchaseTotal("FABRIL_LIMPIEZA") +
     purchaseTotal("FABRIL_INSUMOS") +
     purchaseTotal("FABRIL_SEGURIDAD") +
     purchaseTotal("COSTO FABRIL");
@@ -2801,6 +2816,8 @@ function FazonPanel({
   const fuelRows = purchasesByTypes(["FABRIL_COMBUSTIBLE"]);
   const gasRows = purchasesByTypes(["GAS"]);
   const maintenanceRows = purchasesByTypes(["FABRIL_MANTENIMIENTO"]);
+  const qualityRows = purchasesByTypes(["FABRIL_CONTROL_CALIDAD", "INSUMO_CONTROL"]);
+  const cleaningRows = purchasesByTypes(["FABRIL_LIMPIEZA"]);
   const suppliesRows = purchasesByTypes(["FABRIL_INSUMOS"]);
   const safetyRows = purchasesByTypes(["FABRIL_SEGURIDAD"]);
   const otherFabrilRows = purchasesByTypes(["COSTO FABRIL"]);
@@ -2812,6 +2829,8 @@ function FazonPanel({
     { label: "Combustible de planta compras", value: totalPurchases(fuelRows), purchases: fuelRows },
     { label: "Gas compras", value: totalPurchases(gasRows), purchases: gasRows },
     { label: "Mantenimiento compras", value: totalPurchases(maintenanceRows), purchases: maintenanceRows },
+    { label: "Control de calidad compras", value: totalPurchases(qualityRows), purchases: qualityRows },
+    { label: "Limpieza de planta compras", value: totalPurchases(cleaningRows), purchases: cleaningRows },
     { label: "Insumos fabriles compras", value: totalPurchases(suppliesRows), purchases: suppliesRows },
     { label: "Seguridad e higiene compras", value: totalPurchases(safetyRows), purchases: safetyRows },
     { label: "Otros costos fabriles compras", value: totalPurchases(otherFabrilRows), purchases: otherFabrilRows },
@@ -2833,6 +2852,33 @@ function FazonPanel({
   const marginTotal = netFazonRevenue - totalFazonCost;
   const marginPerTon = model.fazon.totalToneladas ? marginTotal / model.fazon.totalToneladas : 0;
   const marginPct = netFazonRevenue ? marginTotal / netFazonRevenue : 0;
+  const costQualityChecks = [
+    {
+      label: "Volumen fazon",
+      status: model.fazon.remitos.length ? "Confiable" : fazonLiters ? "Estimado" : "No disponible",
+      detail: model.fazon.remitos.length ? "Sale de remitos IF cargados." : "Usa litros manuales o no hay base cargada.",
+    },
+    {
+      label: "Mano de obra",
+      status: params.sueldosProduccion > 0 ? "Estimado" : "No disponible",
+      detail: params.sueldosProduccion > 0 ? "Se distribuye desde sueldos de produccion." : "Falta cargar sueldos de produccion.",
+    },
+    {
+      label: "Carga fabril compras",
+      status: purchasesFabrilCost > 0 ? "Confiable" : "Revisar",
+      detail: purchasesFabrilCost > 0 ? "Sale de compras imputadas a rubros fabriles." : "No hay compras fabriles detectadas.",
+    },
+    {
+      label: "Depreciacion",
+      status: depreciationMonthly > 0 ? "Estimado" : "No disponible",
+      detail: depreciationMonthly > 0 ? "Calculada con USD, tipo de cambio y vida util." : "Falta valor de maquinaria o tipo de cambio.",
+    },
+  ];
+  const costNatureRows = costPoolRows.map((row) => ({
+    ...row,
+    share: totalProductionCostPool ? row.value / totalProductionCostPool : 0,
+    assignedToFazon: row.value * fazonProductionShare,
+  }));
   const fazonRowsForAllocation = model.fazon.rows.filter((row) => row.litros || row.toneladas || row.facturacion);
   const fazonAllocationBase = fazonRowsForAllocation.reduce(
     (total, row) => total + (row.litros || (row.toneladas && row.densidad ? (row.toneladas * 1000) / row.densidad : 0)),
@@ -3012,6 +3058,39 @@ function FazonPanel({
                 <span>Margen real / TN</span>
                 <strong className={marginPerTon < 0 ? "negative" : undefined}>{money(marginPerTon)}</strong>
               </div>
+            </div>
+            <div className="data-quality-grid">
+              {costQualityChecks.map((check) => (
+                <article className="data-quality-card" key={check.label}>
+                  <span>{check.label}</span>
+                  <strong className={`quality-status ${cssToken(check.status)}`}>{check.status}</strong>
+                  <p>{check.detail}</p>
+                </article>
+              ))}
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Naturaleza</th>
+                    <th>Total mensual</th>
+                    <th>% pool productivo</th>
+                    <th>Asignado fazon</th>
+                    <th>Fuente</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {costNatureRows.map((row) => (
+                    <tr key={`nature-${row.label}`}>
+                      <td><strong>{row.label}</strong></td>
+                      <td>{money(row.value)}</td>
+                      <td>{pct(row.share)}</td>
+                      <td>{money(row.assignedToFazon)}</td>
+                      <td>{row.source ?? `${row.purchases.length} compras`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             <div className="table-wrap">
               <table>
