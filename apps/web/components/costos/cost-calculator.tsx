@@ -249,6 +249,7 @@ const PURCHASE_TYPES = [
   "ADMIN VARIOS",
   "ADMIN IVA",
   "IMPUESTOS",
+  "FABRIL_ENERGIA",
   "FABRIL_ELECTRICIDAD",
   "FABRIL_AGUA",
   "FABRIL_COMBUSTIBLE",
@@ -337,9 +338,14 @@ const PURCHASE_TYPE_DETAILS: Record<
     description: "Impuestos no recuperables o cargos fiscales de gestion.",
     impact: "suma costo",
   },
+  FABRIL_ENERGIA: {
+    label: "Fabril energia electrica",
+    description: "Servicio o consumo de energia electrica de planta.",
+    impact: "suma costo",
+  },
   FABRIL_ELECTRICIDAD: {
-    label: "Fabril electricidad",
-    description: "Electricidad e insumos electricos de planta.",
+    label: "Fabril insumos electricos",
+    description: "Fusibles, focos, lamparas, cables y otros materiales electricos de planta.",
     impact: "suma costo",
   },
   FABRIL_AGUA: {
@@ -652,7 +658,7 @@ const PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "PUBLICIDAD", proveedor: "*", tipo: "ADMIN IVA", producto: "Comercial" },
   { articulo: "Servicios web", proveedor: "*", tipo: "ADMIN", producto: "Comercial" },
   { articulo: "Servicio diseno grafico", proveedor: "*", tipo: "ADMIN", producto: "Comercial" },
-  { articulo: "Servicio Energia electrica", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
+  { articulo: "Servicio Energia electrica", proveedor: "*", tipo: "FABRIL_ENERGIA", producto: "Planta" },
   { articulo: "Servicio Agua", proveedor: "*", tipo: "FABRIL_AGUA", producto: "Planta" },
   { articulo: "Agua", proveedor: "*", tipo: "FABRIL_AGUA", producto: "Planta" },
   { articulo: "Insumos electricidad", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
@@ -1483,6 +1489,7 @@ function buildCostModel(
 
   const costoFabrilTotal =
     params.sueldosProduccion +
+    purchaseTotal("FABRIL_ENERGIA") +
     purchaseTotal("FABRIL_ELECTRICIDAD") +
     purchaseTotal("FABRIL_AGUA") +
     purchaseTotal("FABRIL_COMBUSTIBLE") +
@@ -2854,7 +2861,8 @@ function FazonPanel({
     params.valorMaquinariaFazonUsd && params.dolarDivisaBna && params.vidaUtilMaquinariaFazonAnios
       ? (params.valorMaquinariaFazonUsd * params.dolarDivisaBna) / (params.vidaUtilMaquinariaFazonAnios * 12)
       : 0;
-  const energyRows = purchasesByTypes(["FABRIL_ELECTRICIDAD"]);
+  const energyRows = purchasesByTypes(["FABRIL_ENERGIA"]);
+  const electricalSupplyRows = purchasesByTypes(["FABRIL_ELECTRICIDAD"]);
   const waterRows = purchasesByTypes(["FABRIL_AGUA"]);
   const fuelRows = purchasesByTypes(["FABRIL_COMBUSTIBLE"]);
   const gasRows = purchasesByTypes(["GAS"]);
@@ -2868,6 +2876,7 @@ function FazonPanel({
     { label: "Mano de obra produccion", value: params.sueldosProduccion, source: "Manual", purchases: [] },
     { label: "Depreciacion maquinaria", value: depreciationMonthly, source: "Manual USD", purchases: [] },
     { label: "Energia electrica compras", value: totalPurchases(energyRows), purchases: energyRows },
+    { label: "Insumos electricos compras", value: totalPurchases(electricalSupplyRows), purchases: electricalSupplyRows },
     { label: "Agua compras", value: totalPurchases(waterRows), purchases: waterRows },
     { label: "Combustible de planta compras", value: totalPurchases(fuelRows), purchases: fuelRows },
     { label: "Gas compras", value: totalPurchases(gasRows), purchases: gasRows },
