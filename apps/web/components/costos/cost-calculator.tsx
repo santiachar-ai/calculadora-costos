@@ -3955,6 +3955,7 @@ function AllocationMaster({
 }) {
   const [search, setSearch] = useState("");
   const [masterMessage, setMasterMessage] = useState("");
+  const [showMasterClearAction, setShowMasterClearAction] = useState(false);
   const [newPurchaseRule, setNewPurchaseRule] = useState<PurchaseRule>({
     articulo: "",
     proveedor: "*",
@@ -4054,6 +4055,7 @@ function AllocationMaster({
     );
     if (existingIndex < 0) onAddPurchase(purchaseRuleWithManagement(rule));
     setSearch(rule.articulo);
+    setShowMasterClearAction(true);
     setMasterMessage("La regla se copio a Compras manuales. Edita ahi tipo, centro, objeto o criterio para cambiar la imputacion.");
   }
 
@@ -4061,6 +4063,7 @@ function AllocationMaster({
     const existingIndex = customSalesRules.findIndex((item) => key(item.articulo) === key(rule.articulo));
     if (existingIndex < 0) onAddSales(rule);
     setSearch(rule.articulo);
+    setShowMasterClearAction(true);
     setMasterMessage("La regla se copio a Ventas manuales. Edita ahi el tipo, producto, factor o litros.");
   }
 
@@ -4106,7 +4109,10 @@ function AllocationMaster({
           <input
             type="search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setShowMasterClearAction(false);
+            }}
             placeholder="Articulo, proveedor o cuenta"
           />
         </label>
@@ -4114,7 +4120,20 @@ function AllocationMaster({
 
       {masterMessage ? (
         <div className="message success">
-          {masterMessage}
+          <span>{masterMessage}</span>
+          {showMasterClearAction ? (
+            <button
+              className="button-secondary compact-table-action"
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setShowMasterClearAction(false);
+                setMasterMessage("");
+              }}
+            >
+              Ver todo
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -4504,7 +4523,7 @@ function BasePurchaseRuleTable({
   rules: PurchaseRule[];
   onEdit: (rule: PurchaseRule) => void;
 }) {
-  const [filters, setFilters] = useState({
+  const emptyFilters = {
     articulo: "",
     proveedor: "",
     tipo: "",
@@ -4513,7 +4532,11 @@ function BasePurchaseRuleTable({
     objetoCosto: "",
     criterioDistribucion: "",
     incluyeEnCosto: "",
+  };
+  const [filters, setFilters] = useState({
+    ...emptyFilters,
   });
+  const hasActiveFilters = Object.values(filters).some(Boolean);
   const filteredRules = rules.filter((rule) =>
     (!filters.articulo || key(rule.articulo).includes(key(filters.articulo))) &&
     (!filters.proveedor || key(rule.proveedor).includes(key(filters.proveedor))) &&
@@ -4529,6 +4552,17 @@ function BasePurchaseRuleTable({
     <article className="table-card audit-card">
       <h2>Compras base</h2>
       <p>Usa Editar para copiar una regla base a Compras manuales y poder modificar tipo o producto.</p>
+      <div className="base-table-tools">
+        <span>{number(filteredRules.length)} de {number(rules.length)} reglas visibles</span>
+        <button
+          className="button-secondary compact-table-action"
+          type="button"
+          onClick={() => setFilters(emptyFilters)}
+          disabled={!hasActiveFilters}
+        >
+          Limpiar filtros
+        </button>
+      </div>
       <div className="table-wrap audit-table-wrap master-table-wrap">
         <table>
           <thead>
@@ -4648,13 +4682,17 @@ function BaseSalesRuleTable({
   rules: SalesRule[];
   onEdit: (rule: SalesRule) => void;
 }) {
-  const [filters, setFilters] = useState({
+  const emptyFilters = {
     articulo: "",
     tipo: "",
     producto: "",
     factor: "",
     litros: "",
+  };
+  const [filters, setFilters] = useState({
+    ...emptyFilters,
   });
+  const hasActiveFilters = Object.values(filters).some(Boolean);
   const filteredRules = rules.filter((rule) =>
     (!filters.articulo || key(rule.articulo).includes(key(filters.articulo))) &&
     (!filters.tipo || key(rule.tipo).includes(key(filters.tipo))) &&
@@ -4667,6 +4705,17 @@ function BaseSalesRuleTable({
     <article className="table-card audit-card">
       <h2>Ventas base</h2>
       <p>Usa Editar para copiar una regla base a Ventas manuales y poder modificar tipo, producto o factor.</p>
+      <div className="base-table-tools">
+        <span>{number(filteredRules.length)} de {number(rules.length)} reglas visibles</span>
+        <button
+          className="button-secondary compact-table-action"
+          type="button"
+          onClick={() => setFilters(emptyFilters)}
+          disabled={!hasActiveFilters}
+        >
+          Limpiar filtros
+        </button>
+      </div>
       <div className="table-wrap audit-table-wrap master-table-wrap">
         <table>
           <thead>
