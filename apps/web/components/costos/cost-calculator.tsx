@@ -265,6 +265,7 @@ const PURCHASE_TYPES = [
   "ETIQUETA_CONTROL",
   "ACCESORIO_COMPRA",
   "NO_COSTO",
+  "NO_OPERATIVO_FISCAL",
   "RESULTADO_FINANCIERO",
   "OTROS",
 ];
@@ -416,6 +417,11 @@ const PURCHASE_TYPE_DETAILS: Record<
   NO_COSTO: {
     label: "No costo",
     description: "Movimientos que deben quedar fuera del calculo de costos.",
+    impact: "fuera del costo",
+  },
+  NO_OPERATIVO_FISCAL: {
+    label: "No operativo fiscal",
+    description: "Compras realizadas por credito fiscal o planificacion fiscal, sin consumo operativo asociado.",
     impact: "fuera del costo",
   },
   RESULTADO_FINANCIERO: {
@@ -784,7 +790,7 @@ function inferCostCenter(tipo: string, producto: string) {
   if (tipo === "INVERSION") return "Inversion";
   if (["INSUMO_CONTROL", "ENVASE_CONTROL", "ETIQUETA_CONTROL"].includes(tipo) || producto === "Control") return "Control";
   if (tipo === "ACCESORIO_COMPRA" || producto === "Envases") return "Envases";
-  if (tipo === "NO_COSTO") return "Empresa";
+  if (tipo === "NO_COSTO" || tipo === "NO_OPERATIVO_FISCAL") return "Empresa";
   return "Revisar";
 }
 
@@ -800,12 +806,12 @@ function inferCostObject(tipo: string, producto: string) {
   if (producto === "Control") return "Control";
   if (producto === "Envases") return "Envases";
   if (producto === "Financiero" || tipo === "RESULTADO_FINANCIERO") return "Financiero";
-  if (["NO_COSTO", "INVERSION"].includes(tipo)) return "No aplica";
+  if (["NO_COSTO", "NO_OPERATIVO_FISCAL", "INVERSION"].includes(tipo)) return "No aplica";
   return "Produccion propia";
 }
 
 function inferDistributionCriteria(tipo: string, producto: string) {
-  if (["NO_COSTO", "INVERSION", "RESULTADO_FINANCIERO"].includes(tipo)) return "No aplica";
+  if (["NO_COSTO", "NO_OPERATIVO_FISCAL", "INVERSION", "RESULTADO_FINANCIERO"].includes(tipo)) return "No aplica";
   if (producto === "IF Fazon" || producto === "IF_FAZON_325" || producto === "IF_FAZON_IND") return "Toneladas producidas";
   if (["MP", "MP_FLETE", "FLETE", "GASTO_COMERCIAL", "COMISION_IF", "LOGISTICA_COMB", "LOGISTICA"].includes(tipo)) {
     return "Directo";
@@ -4018,7 +4024,7 @@ function AllocationMaster({
     SALES_RULES.some((baseRule) => key(baseRule.articulo) === key(rule.articulo)),
   );
   const sensitivePurchaseRules = customPurchaseRules.filter((rule) =>
-    ["COMISION_IF", "COMPENSACION_IF", "NO_COSTO", "INVERSION", "RESULTADO_FINANCIERO", "OTROS"].includes(rule.tipo),
+    ["COMISION_IF", "COMPENSACION_IF", "NO_COSTO", "NO_OPERATIVO_FISCAL", "INVERSION", "RESULTADO_FINANCIERO", "OTROS"].includes(rule.tipo),
   );
   const visiblePurchaseTypes = PURCHASE_TYPES.filter((tipo) => matches([tipo, purchaseTypeName(tipo)]));
 
