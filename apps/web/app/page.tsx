@@ -15,12 +15,7 @@ export default async function HomePage() {
       <section className="hero">
         <article className="hero-card">
           <p className="eyebrow">ERP Propio</p>
-          <h1>Una base operativa pensada para reemplazar dolores reales.</h1>
-          <p>
-            Empezamos por el punto mas critico de tu operacion: remitos con
-            salida real desde multiples depositos, trazabilidad exacta y stock
-            confiable.
-          </p>
+          <h1>Proyecto erp</h1>
           <div className="badge-row">
             <div className="badge">
               <strong>Ventas</strong>
