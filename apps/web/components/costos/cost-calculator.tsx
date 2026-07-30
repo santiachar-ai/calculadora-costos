@@ -167,6 +167,23 @@ type CostInsights = {
   risks: CostRisk[];
 };
 
+type ProductLineProfit = {
+  producto: string;
+  litros: number;
+  facturacion: number;
+  precioLitro: number;
+  costoProduccionLitro: number;
+  costoGestionLitro: number;
+  margenProduccionLitro: number;
+  margenGestionLitro: number;
+  utilidadProduccion: number;
+  utilidadGestion: number;
+  margenPct: number;
+  indirectosAsignados: number;
+  puntoEquilibrioLitros: number;
+  estado: "Con utilidad" | "Revisar" | "Sin ventas";
+};
+
 type CostBreakdownGroup = {
   label: string;
   value: number;
@@ -190,6 +207,7 @@ type CostModel = {
     totalEnvases: number;
   };
   costDrivers: ProductCostDrivers[];
+  productLineProfit: ProductLineProfit[];
   insights: CostInsights;
   indirectosGestion: {
     total: number;
@@ -1858,6 +1876,35 @@ function buildCostModel(
         : "Sin palancas claras hasta cargar mas datos de costos.",
     };
   });
+  const costDriverByProduct = new Map(costDrivers.map((row) => [row.producto, row]));
+  const totalIndirectosGestion = gastosAdmin + gastosComerciales + costosFijos;
+  const productLineProfit: ProductLineProfit[] = products
+    .map((product) => {
+      const driver = costDriverByProduct.get(product.producto);
+      const costoGestionLitro = driver?.costoGestionLitro ?? product.costoLitro;
+      const margenGestionLitro = product.precioLitro - costoGestionLitro;
+      const indirectosAsignados = litrosTotales ? totalIndirectosGestion * (product.litros / litrosTotales) : 0;
+      const utilidadGestion = margenGestionLitro * product.litros;
+      const estado: ProductLineProfit["estado"] =
+        product.litros <= 0 ? "Sin ventas" : utilidadGestion >= 0 ? "Con utilidad" : "Revisar";
+      return {
+        producto: product.producto,
+        litros: product.litros,
+        facturacion: product.facturacion,
+        precioLitro: product.precioLitro,
+        costoProduccionLitro: product.costoLitro,
+        costoGestionLitro,
+        margenProduccionLitro: product.margenLitro,
+        margenGestionLitro,
+        utilidadProduccion: product.margenTotal,
+        utilidadGestion,
+        margenPct: product.facturacion ? utilidadGestion / product.facturacion : 0,
+        indirectosAsignados,
+        puntoEquilibrioLitros: product.margenLitro > 0 ? indirectosAsignados / product.margenLitro : 0,
+        estado,
+      };
+    })
+    .sort((a, b) => b.utilidadGestion - a.utilidadGestion);
 
   const activeCostDrivers = costDrivers.filter(
     (product) => product.litros > 0 || product.costoGestionLitro > 0,
@@ -1946,6 +1993,7 @@ function buildCostModel(
     products,
     fazon,
     costDrivers,
+    productLineProfit,
     insights,
     indirectosGestion: {
       total: gastosAdmin + gastosComerciales + costosFijos,
@@ -2654,6 +2702,8 @@ export function CostCalculator() {
             <Kpi label="Facturacion cubierta" value={pct(model.kpis.facturacionTotal ? model.kpis.facturacionAnalizada / model.kpis.facturacionTotal : 0)} />
           </section>
 
+          <ProductLineProfitPanel model={model} />
+
           <CostDriversPanel model={model} />
         </>
       ) : activeView === "revisiones" ? (
@@ -3294,6 +3344,105 @@ function FazonPanel({
           Carga remitos IF o litros manuales, precios USD/TN y dolar divisa BNA para ver el control del servicio.
         </div>
       )}
+    </section>
+  );
+}
+
+function ProductLineProfitPanel({ model }: { model: CostModel }) {
+  const visibleLines = model.productLineProfit.filter(
+    (line) => line.litros > 0 || line.facturacion > 0 || line.costoGestionLitro > 0,
+  );
+  const profitableLines = visibleLines.filter((line) => line.utilidadGestion > 0);
+  const bestTotal = [...visibleLines].sort((a, b) => b.utilidadGestion - a.utilidadGestion)[0];
+  const bestPerLiter = [...visibleLines].sort((a, b) => b.margenGestionLitro - a.margenGestionLitro)[0];
+  const weakestLine = [...visibleLines].sort((a, b) => a.utilidadGestion - b.utilidadGestion)[0];
+  const totalUtility = visibleLines.reduce((total, line) => total + line.utilidadGestion, 0);
+  const totalRevenue = visibleLines.reduce((total, line) => total + line.facturacion, 0);
+
+  return (
+    <section className="product-line-section">
+      <div className="section-head">
+        <div>
+          <p className="eyebrow">Rentabilidad por linea</p>
+          <h2>Utilidad, costo por litro y punto de equilibrio</h2>
+          <p>
+            Vista ejecutiva por linea de producto: precio promedio, costo de produccion,
+            costo de gestion, utilidad total y litros necesarios para cubrir indirectos asignados.
+          </p>
+        </div>
+        <div className="driver-summary">
+          <span>{number(visibleLines.length)} lineas</span>
+          <span>{number(profitableLines.length)} con utilidad</span>
+          <span>{money(totalUtility)} utilidad gestion</span>
+        </div>
+      </div>
+
+      <div className="insight-grid">
+        <article className="insight-card">
+          <span>Mayor utilidad total</span>
+          <strong>{bestTotal?.producto ?? "Sin datos"}</strong>
+          <p>{bestTotal ? `${money(bestTotal.utilidadGestion)} de utilidad de gestion.` : "Carga ventas para comparar lineas."}</p>
+        </article>
+        <article className="insight-card">
+          <span>Mayor margen por litro</span>
+          <strong>{bestPerLiter?.producto ?? "Sin datos"}</strong>
+          <p>{bestPerLiter ? `${money(bestPerLiter.margenGestionLitro)} / L despues de costos de gestion.` : "Sin margen calculado."}</p>
+        </article>
+        <article className="insight-card">
+          <span>Linea a revisar</span>
+          <strong>{weakestLine?.producto ?? "Sin datos"}</strong>
+          <p>{weakestLine ? `${money(weakestLine.utilidadGestion)} de utilidad gestion.` : "No hay lineas con ventas."}</p>
+        </article>
+        <article className="insight-card">
+          <span>Margen gestion total</span>
+          <strong>{pct(totalRevenue ? totalUtility / totalRevenue : 0)}</strong>
+          <p>Utilidad de gestion sobre facturacion analizada.</p>
+        </article>
+      </div>
+
+      <article className="table-card">
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Linea</th>
+                <th>Estado</th>
+                <th>Litros</th>
+                <th>Facturacion</th>
+                <th>Precio/L</th>
+                <th>Costo prod./L</th>
+                <th>Costo gestion/L</th>
+                <th>Margen gestion/L</th>
+                <th>Utilidad gestion</th>
+                <th>Margen %</th>
+                <th>Equilibrio L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleLines.map((line) => (
+                <tr key={line.producto}>
+                  <td><strong>{line.producto}</strong></td>
+                  <td><span className={`line-status ${cssToken(line.estado)}`}>{line.estado}</span></td>
+                  <td>{number(line.litros)}</td>
+                  <td>{money(line.facturacion)}</td>
+                  <td>{money(line.precioLitro)}</td>
+                  <td>{money(line.costoProduccionLitro)}</td>
+                  <td>{money(line.costoGestionLitro)}</td>
+                  <td className={line.margenGestionLitro < 0 ? "negative" : undefined}>{money(line.margenGestionLitro)}</td>
+                  <td className={line.utilidadGestion < 0 ? "negative" : undefined}>{money(line.utilidadGestion)}</td>
+                  <td className={line.margenPct < 0 ? "negative" : undefined}>{pct(line.margenPct)}</td>
+                  <td>{line.puntoEquilibrioLitros > 0 ? `${number(line.puntoEquilibrioLitros)} L` : "-"}</td>
+                </tr>
+              ))}
+              {!visibleLines.length ? (
+                <tr>
+                  <td colSpan={11}>Carga ventas y compras para ver rentabilidad por linea.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </article>
     </section>
   );
 }

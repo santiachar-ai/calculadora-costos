@@ -974,9 +974,35 @@ th {
   font-size: 1.2rem;
 }
 
-.cost-drivers-section {
+.cost-drivers-section,
+.product-line-section {
   display: grid;
   gap: 18px;
+}
+
+.line-status {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 6px 9px;
+  white-space: nowrap;
+}
+
+.line-status.Con-utilidad {
+  background: rgba(38, 115, 91, 0.13);
+  color: var(--success);
+}
+
+.line-status.Revisar {
+  background: rgba(186, 76, 68, 0.12);
+  color: #963b35;
+}
+
+.line-status.Sin-ventas {
+  background: rgba(231, 238, 244, 0.95);
+  color: #3f5665;
 }
 
 .fazon-card {
