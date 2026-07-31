@@ -3003,6 +3003,7 @@ function FazonPanel({
   const netFazonRevenue = model.fazon.totalIngresoGestion - model.fazon.totalComisiones;
   const marginTotal = netFazonRevenue - totalFazonCost;
   const marginPerTon = model.fazon.totalToneladas ? marginTotal / model.fazon.totalToneladas : 0;
+  const marginUsdPerTon = params.dolarDivisaBna ? marginPerTon / params.dolarDivisaBna : 0;
   const marginPct = netFazonRevenue ? marginTotal / netFazonRevenue : 0;
   const costQualityChecks = [
     {
@@ -3062,6 +3063,7 @@ function FazonPanel({
       netRevenue,
       margin,
       marginPerTon: row.toneladas ? margin / row.toneladas : 0,
+      marginUsdPerTon: row.toneladas && params.dolarDivisaBna ? margin / row.toneladas / params.dolarDivisaBna : 0,
       marginPct: netRevenue ? margin / netRevenue : 0,
       costFactors,
     };
@@ -3222,6 +3224,12 @@ function FazonPanel({
                 <span>Margen real / TN</span>
                 <strong className={marginPerTon < 0 ? "negative" : undefined}>{money(marginPerTon)}</strong>
               </div>
+              <div>
+                <span>Margen USD / TN</span>
+                <strong className={marginUsdPerTon < 0 ? "negative" : undefined}>
+                  {money(marginUsdPerTon).replace("$", "USD ")}
+                </strong>
+              </div>
             </div>
             <div className="data-quality-grid">
               {costQualityChecks.map((check) => (
@@ -3272,6 +3280,7 @@ function FazonPanel({
                     <th>Costo/TN</th>
                     <th>Ingreso neto</th>
                     <th>Margen/TN</th>
+                    <th>Margen USD/TN</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3289,6 +3298,9 @@ function FazonPanel({
                       <td>{money(row.costPerTon)}</td>
                       <td>{money(row.netRevenue)}</td>
                       <td className={row.marginPerTon < 0 ? "negative" : undefined}>{money(row.marginPerTon)}</td>
+                      <td className={row.marginUsdPerTon < 0 ? "negative" : undefined}>
+                        {money(row.marginUsdPerTon).replace("$", "USD ")}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -3332,6 +3344,12 @@ function FazonPanel({
                       <div>
                         <span>Margen %</span>
                         <strong className={row.marginPct < 0 ? "negative" : undefined}>{pct(row.marginPct)}</strong>
+                      </div>
+                      <div>
+                        <span>Margen USD/TN</span>
+                        <strong className={row.marginUsdPerTon < 0 ? "negative" : undefined}>
+                          {money(row.marginUsdPerTon).replace("$", "USD ")}
+                        </strong>
                       </div>
                     </div>
                     <div className="table-wrap">
