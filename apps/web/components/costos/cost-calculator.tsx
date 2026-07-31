@@ -3045,6 +3045,11 @@ function FazonPanel({
     const totalCost = laborCost + depreciationCost + purchasesCost;
     const netRevenue = row.ingresoGestion - row.comision;
     const margin = netRevenue - totalCost;
+    const costFactors = costNatureRows.map((factor) => ({
+      ...factor,
+      assignedToProduct: factor.assignedToFazon * productShare,
+      costPerTon: row.toneladas ? (factor.assignedToFazon * productShare) / row.toneladas : 0,
+    }));
     return {
       ...row,
       allocationLiters,
@@ -3057,6 +3062,8 @@ function FazonPanel({
       netRevenue,
       margin,
       marginPerTon: row.toneladas ? margin / row.toneladas : 0,
+      marginPct: netRevenue ? margin / netRevenue : 0,
+      costFactors,
     };
   });
   const directCostFields = [
@@ -3256,6 +3263,8 @@ function FazonPanel({
                     <th>Servicio</th>
                     <th>Base L</th>
                     <th>Participacion</th>
+                    <th>Ingreso gestion</th>
+                    <th>Comision IF</th>
                     <th>Mano de obra</th>
                     <th>Depreciacion</th>
                     <th>Compras productivas</th>
@@ -3271,6 +3280,8 @@ function FazonPanel({
                       <td><strong>{row.producto}</strong></td>
                       <td>{number(row.allocationLiters)}</td>
                       <td>{pct(row.share)}</td>
+                      <td>{money(row.ingresoGestion)}</td>
+                      <td>{money(row.comision)}</td>
                       <td>{money(row.laborCost)}</td>
                       <td>{money(row.depreciationCost)}</td>
                       <td>{money(row.purchasesCost)}</td>
@@ -3283,6 +3294,76 @@ function FazonPanel({
                 </tbody>
               </table>
             </div>
+            <details className="remitos-disclosure" open>
+              <summary>
+                <span>Desglose del costo por linea de fazon</span>
+                <strong>{number(realCostByFazonProduct.length)} lineas</strong>
+              </summary>
+              <div className="cost-breakdown-list">
+                {realCostByFazonProduct.map((row) => (
+                  <details className="cost-breakdown-item" key={`fazon-detail-${row.producto}`}>
+                    <summary>
+                      <span>{row.producto}</span>
+                      <strong className={row.margin < 0 ? "negative" : undefined}>
+                        {money(row.margin)} margen
+                      </strong>
+                    </summary>
+                    <div className="fazon-summary">
+                      <div>
+                        <span>Toneladas</span>
+                        <strong>{number(row.toneladas)}</strong>
+                      </div>
+                      <div>
+                        <span>Precio manual</span>
+                        <strong>{money(row.precioUsdTon).replace("$", "USD ")}/TN</strong>
+                      </div>
+                      <div>
+                        <span>Ingreso gestion</span>
+                        <strong>{money(row.ingresoGestion)}</strong>
+                      </div>
+                      <div>
+                        <span>Ingreso neto</span>
+                        <strong>{money(row.netRevenue)}</strong>
+                      </div>
+                      <div>
+                        <span>Costo total</span>
+                        <strong>{money(row.totalCost)}</strong>
+                      </div>
+                      <div>
+                        <span>Margen %</span>
+                        <strong className={row.marginPct < 0 ? "negative" : undefined}>{pct(row.marginPct)}</strong>
+                      </div>
+                    </div>
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Factor</th>
+                            <th>Total mensual</th>
+                            <th>Asignado a fazon</th>
+                            <th>Asignado linea</th>
+                            <th>Costo/TN</th>
+                            <th>Fuente</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {row.costFactors.map((factor) => (
+                            <tr key={`${row.producto}-${factor.label}`}>
+                              <td><strong>{factor.label}</strong></td>
+                              <td>{money(factor.value)}</td>
+                              <td>{money(factor.assignedToFazon)}</td>
+                              <td>{money(factor.assignedToProduct)}</td>
+                              <td>{money(factor.costPerTon)}</td>
+                              <td>{factor.source ?? `${factor.purchases.length} compras`}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </details>
             <details className="remitos-disclosure">
               <summary>
                 <span>Ver rubros del costo productivo</span>
