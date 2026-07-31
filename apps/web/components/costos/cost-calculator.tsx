@@ -104,6 +104,8 @@ type FazonResult = {
   tipoCambio: number;
   valorTeorico: number;
   facturacion: number;
+  ingresoGestion: number;
+  fuenteIngreso: string;
   diferencia: number;
   comision: number;
   fuente: string;
@@ -202,6 +204,7 @@ type CostModel = {
     totalToneladas: number;
     totalTeorico: number;
     totalFacturado: number;
+    totalIngresoGestion: number;
     totalDiferencia: number;
     totalComisiones: number;
     totalEnvases: number;
@@ -1374,6 +1377,11 @@ function sum<T>(rows: T[], predicate: (row: T) => boolean, selector: (row: T) =>
   return rows.reduce((total, row) => (predicate(row) ? total + selector(row) : total), 0);
 }
 
+function isIfCustomer(cliente: string) {
+  const normalized = key(cliente);
+  return normalized.includes("IF INGENIERIA") || normalized.includes("INGENIERIA EN FERTILIZANTES");
+}
+
 function weightedUnitCost(
   purchases: PurchaseRow[],
   matcher: (row: PurchaseRow) => boolean,
@@ -1602,8 +1610,16 @@ function buildCostModel(
     current.facturacion += row.total;
     priceByProduct.set(row.producto, current);
   });
-  const salesTotal = (producto: string) =>
-    sum(sales, (row) => row.producto === producto && !row.revisar, (row) => row.total);
+  const fazonServiceTotal = (producto: string) =>
+    sum(
+      sales,
+      (row) =>
+        row.producto === producto &&
+        row.tipo === "SERVICIO" &&
+        !row.revisar &&
+        isIfCustomer(row.cliente),
+      (row) => row.total,
+    );
   const comisionIfTotal =
     purchaseTotal("COMISION_IF", "IF Fazon") +
     purchaseTotal("COMPENSACION_IF", "IF Fazon") +
@@ -1616,42 +1632,41 @@ function buildCostModel(
     ? remitosSummary.toneladasIndustrial
     : (effectiveParams.litrosFazonIndustrial * params.densidadIndustrial) / 1000;
   const litrosFazonIndustrial = effectiveParams.litrosFazonIndustrial;
+  const buildFazonRow = (
+    producto: "IF_FAZON_325" | "IF_FAZON_IND",
+    litros: number,
+    densidad: number,
+    toneladas: number,
+    precioUsdTon: number,
+    hasRemitos: boolean,
+  ): FazonResult => {
+    const valorTeorico = toneladas * precioUsdTon * params.dolarDivisaBna;
+    const facturacionServicio = fazonServiceTotal(producto);
+    const ingresoGestion = facturacionServicio || valorTeorico;
+
+    return {
+      producto,
+      litros,
+      densidad,
+      toneladas,
+      precioUsdTon,
+      tipoCambio: params.dolarDivisaBna,
+      valorTeorico,
+      facturacion: facturacionServicio,
+      ingresoGestion,
+      fuenteIngreso: facturacionServicio ? "Factura servicio IF" : "Esperado por TN",
+      diferencia: facturacionServicio ? facturacionServicio - valorTeorico : 0,
+      comision: 0,
+      fuente: hasRemitos ? "Remitos" : "Manual",
+    };
+  };
   const fazonRows: FazonResult[] = [
-    {
-      producto: "IF_FAZON_325",
-      litros: litrosFazon325,
-      densidad: params.densidadOptiblue,
-      toneladas: toneladasFazon325,
-      precioUsdTon: params.precioFazon325UsdTon,
-      tipoCambio: params.dolarDivisaBna,
-      valorTeorico:
-        toneladasFazon325 * params.precioFazon325UsdTon * params.dolarDivisaBna,
-      facturacion: salesTotal("IF_FAZON_325"),
-      diferencia:
-        salesTotal("IF_FAZON_325") -
-        toneladasFazon325 * params.precioFazon325UsdTon * params.dolarDivisaBna,
-      comision: 0,
-      fuente: hasRemitosFazon325 ? "Remitos" : "Manual",
-    },
-    {
-      producto: "IF_FAZON_IND",
-      litros: litrosFazonIndustrial,
-      densidad: params.densidadIndustrial,
-      toneladas: toneladasFazonIndustrial,
-      precioUsdTon: params.precioFazonIndustrialUsdTon,
-      tipoCambio: params.dolarDivisaBna,
-      valorTeorico:
-        toneladasFazonIndustrial * params.precioFazonIndustrialUsdTon * params.dolarDivisaBna,
-      facturacion: salesTotal("IF_FAZON_IND"),
-      diferencia:
-        salesTotal("IF_FAZON_IND") -
-        toneladasFazonIndustrial * params.precioFazonIndustrialUsdTon * params.dolarDivisaBna,
-      comision: 0,
-      fuente: hasRemitosFazonIndustrial ? "Remitos" : "Manual",
-    },
+    buildFazonRow("IF_FAZON_325", litrosFazon325, params.densidadOptiblue, toneladasFazon325, params.precioFazon325UsdTon, hasRemitosFazon325),
+    buildFazonRow("IF_FAZON_IND", litrosFazonIndustrial, params.densidadIndustrial, toneladasFazonIndustrial, params.precioFazonIndustrialUsdTon, hasRemitosFazonIndustrial),
   ];
   const fazonTotalTeorico = fazonRows.reduce((total, row) => total + row.valorTeorico, 0);
   const fazonTotalFacturado = fazonRows.reduce((total, row) => total + row.facturacion, 0);
+  const fazonTotalIngresoGestion = fazonRows.reduce((total, row) => total + row.ingresoGestion, 0);
   const fazon: CostModel["fazon"] = {
     rows: fazonRows.map((row) => ({
       ...row,
@@ -1661,6 +1676,7 @@ function buildCostModel(
     totalToneladas: fazonRows.reduce((total, row) => total + row.toneladas, 0),
     totalTeorico: fazonTotalTeorico,
     totalFacturado: fazonTotalFacturado,
+    totalIngresoGestion: fazonTotalIngresoGestion,
     totalDiferencia: fazonTotalFacturado - fazonTotalTeorico,
     totalComisiones: comisionIfTotal,
     totalEnvases: remitosSummary.totalEnvases,
@@ -1697,8 +1713,17 @@ function buildCostModel(
     return iibb + comision;
   };
 
+  const fazonRevenueByProduct = new Map(
+    fazon.rows.map((row) => [
+      row.producto,
+      {
+        litros: row.litros,
+        facturacion: row.ingresoGestion,
+      },
+    ]),
+  );
   const products = PRODUCT_ORDER.map((producto) => {
-    const sale = priceByProduct.get(producto) ?? {
+    const sale = fazonRevenueByProduct.get(producto) ?? priceByProduct.get(producto) ?? {
       litros: production.get(producto) ?? 0,
       facturacion: 0,
     };
@@ -2909,7 +2934,7 @@ function FazonPanel({
     ),
   );
   const hasFazon =
-    model.fazon.rows.some((row) => row.litros || row.facturacion || row.valorTeorico) ||
+    model.fazon.rows.some((row) => row.litros || row.facturacion || row.ingresoGestion || row.valorTeorico) ||
     model.fazon.totalComisiones;
   const purchasesByTypes = (tipos: string[]) => model.purchases.filter((row) => tipos.includes(row.tipo));
   const totalPurchases = (rows: PurchaseRow[]) => rows.reduce((total, row) => total + row.total, 0);
@@ -2956,7 +2981,7 @@ function FazonPanel({
   const totalProductionCostPool = costPoolRows.reduce((total, row) => total + row.value, 0);
   const totalFazonCost = totalProductionCostPool * fazonProductionShare;
   const costPerTon = model.fazon.totalToneladas ? totalFazonCost / model.fazon.totalToneladas : 0;
-  const netFazonRevenue = model.fazon.totalFacturado - model.fazon.totalComisiones;
+  const netFazonRevenue = model.fazon.totalIngresoGestion - model.fazon.totalComisiones;
   const marginTotal = netFazonRevenue - totalFazonCost;
   const marginPerTon = model.fazon.totalToneladas ? marginTotal / model.fazon.totalToneladas : 0;
   const marginPct = netFazonRevenue ? marginTotal / netFazonRevenue : 0;
@@ -2999,7 +3024,7 @@ function FazonPanel({
     const depreciationCost = depreciationMonthly * fazonProductionShare * productShare;
     const purchasesCost = purchasesFabrilCost * fazonProductionShare * productShare;
     const totalCost = laborCost + depreciationCost + purchasesCost;
-    const netRevenue = row.facturacion - row.comision;
+    const netRevenue = row.ingresoGestion - row.comision;
     const margin = netRevenue - totalCost;
     return {
       ...row,
@@ -3036,6 +3061,7 @@ function FazonPanel({
           <span>{number(model.fazon.totalToneladas)} TN</span>
           <span>{money(model.fazon.totalTeorico)} esperado</span>
           <span>{money(model.fazon.totalFacturado)} facturado</span>
+          <span>{money(model.fazon.totalIngresoGestion)} gestion</span>
           {model.fazon.remitos.length ? <span>{model.fazon.remitos.length} remitos</span> : null}
         </div>
       </div>
@@ -3053,9 +3079,11 @@ function FazonPanel({
                   <th>USD/TN</th>
                   <th>Dolar</th>
                   <th>Esperado</th>
-                  <th>Facturado</th>
+                  <th>Facturado real</th>
+                  <th>Ingreso gestion</th>
                   <th>Diferencia</th>
-                  <th>Fuente</th>
+                  <th>Fuente ingreso</th>
+                  <th>Fuente volumen</th>
                 </tr>
               </thead>
               <tbody>
@@ -3069,7 +3097,9 @@ function FazonPanel({
                     <td>{money(row.tipoCambio)}</td>
                     <td>{money(row.valorTeorico)}</td>
                     <td>{money(row.facturacion)}</td>
+                    <td>{money(row.ingresoGestion)}</td>
                     <td className={row.diferencia < 0 ? "negative" : undefined}>{money(row.diferencia)}</td>
+                    <td>{row.fuenteIngreso}</td>
                     <td>{row.fuente}</td>
                   </tr>
                 ))}
@@ -3088,8 +3118,8 @@ function FazonPanel({
               <strong>{money(model.fazon.totalComisiones)}</strong>
             </div>
             <div>
-              <span>Facturado neto de comisiones</span>
-              <strong>{money(model.fazon.totalFacturado - model.fazon.totalComisiones)}</strong>
+              <span>Ingreso gestion neto</span>
+              <strong>{money(model.fazon.totalIngresoGestion - model.fazon.totalComisiones)}</strong>
             </div>
             <div>
               <span>Lineas de envases</span>
