@@ -1667,7 +1667,6 @@ function buildCostModel(
     const facturacionServicio = fazonTotalTeorico
       ? unifiedFazonServiceTotal * (row.valorTeorico / fazonTotalTeorico)
       : 0;
-    const ingresoGestion = facturacionServicio || row.valorTeorico;
 
     return {
       producto: row.producto,
@@ -1678,8 +1677,8 @@ function buildCostModel(
       tipoCambio: params.dolarDivisaBna,
       valorTeorico: row.valorTeorico,
       facturacion: facturacionServicio,
-      ingresoGestion,
-      fuenteIngreso: facturacionServicio ? "Factura unica IF por TN x USD/TN" : "Esperado por TN",
+      ingresoGestion: row.valorTeorico,
+      fuenteIngreso: "TN remitos x USD/TN manual",
       diferencia: facturacionServicio ? facturacionServicio - row.valorTeorico : 0,
       comision: 0,
       fuente: row.hasRemitos ? "Remitos" : "Manual",
