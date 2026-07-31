@@ -1382,6 +1382,15 @@ function isIfCustomer(cliente: string) {
   return normalized.includes("IF INGENIERIA") || normalized.includes("INGENIERIA EN FERTILIZANTES");
 }
 
+function isUnifiedFazonServiceArticle(articulo: string) {
+  const normalized = key(articulo);
+  return (
+    normalized.includes("SERVICIO DE ALMACENAJE") &&
+    normalized.includes("FRACCIONAMIENTO") &&
+    normalized.includes("DILUCION")
+  );
+}
+
 function weightedUnitCost(
   purchases: PurchaseRow[],
   matcher: (row: PurchaseRow) => boolean,
@@ -1610,14 +1619,14 @@ function buildCostModel(
     current.facturacion += row.total;
     priceByProduct.set(row.producto, current);
   });
-  const fazonServiceTotal = (producto: string) =>
+  const unifiedFazonServiceTotal =
     sum(
       sales,
       (row) =>
-        row.producto === producto &&
         row.tipo === "SERVICIO" &&
         !row.revisar &&
-        isIfCustomer(row.cliente),
+        isIfCustomer(row.cliente) &&
+        isUnifiedFazonServiceArticle(row.articulo),
       (row) => row.total,
     );
   const comisionIfTotal =
@@ -1632,39 +1641,50 @@ function buildCostModel(
     ? remitosSummary.toneladasIndustrial
     : (effectiveParams.litrosFazonIndustrial * params.densidadIndustrial) / 1000;
   const litrosFazonIndustrial = effectiveParams.litrosFazonIndustrial;
-  const buildFazonRow = (
-    producto: "IF_FAZON_325" | "IF_FAZON_IND",
-    litros: number,
-    densidad: number,
-    toneladas: number,
-    precioUsdTon: number,
-    hasRemitos: boolean,
-  ): FazonResult => {
-    const valorTeorico = toneladas * precioUsdTon * params.dolarDivisaBna;
-    const facturacionServicio = fazonServiceTotal(producto);
-    const ingresoGestion = facturacionServicio || valorTeorico;
+  const fazonBaseRows = [
+    {
+      producto: "IF_FAZON_325" as const,
+      litros: litrosFazon325,
+      densidad: params.densidadOptiblue,
+      toneladas: toneladasFazon325,
+      precioUsdTon: params.precioFazon325UsdTon,
+      hasRemitos: hasRemitosFazon325,
+    },
+    {
+      producto: "IF_FAZON_IND" as const,
+      litros: litrosFazonIndustrial,
+      densidad: params.densidadIndustrial,
+      toneladas: toneladasFazonIndustrial,
+      precioUsdTon: params.precioFazonIndustrialUsdTon,
+      hasRemitos: hasRemitosFazonIndustrial,
+    },
+  ].map((row) => ({
+    ...row,
+    valorTeorico: row.toneladas * row.precioUsdTon * params.dolarDivisaBna,
+  }));
+  const fazonTotalTeorico = fazonBaseRows.reduce((total, row) => total + row.valorTeorico, 0);
+  const fazonRows: FazonResult[] = fazonBaseRows.map((row) => {
+    const facturacionServicio = fazonTotalTeorico
+      ? unifiedFazonServiceTotal * (row.valorTeorico / fazonTotalTeorico)
+      : 0;
+    const ingresoGestion = facturacionServicio || row.valorTeorico;
 
     return {
-      producto,
-      litros,
-      densidad,
-      toneladas,
-      precioUsdTon,
+      producto: row.producto,
+      litros: row.litros,
+      densidad: row.densidad,
+      toneladas: row.toneladas,
+      precioUsdTon: row.precioUsdTon,
       tipoCambio: params.dolarDivisaBna,
-      valorTeorico,
+      valorTeorico: row.valorTeorico,
       facturacion: facturacionServicio,
       ingresoGestion,
-      fuenteIngreso: facturacionServicio ? "Factura servicio IF" : "Esperado por TN",
-      diferencia: facturacionServicio ? facturacionServicio - valorTeorico : 0,
+      fuenteIngreso: facturacionServicio ? "Factura unica IF por TN x USD/TN" : "Esperado por TN",
+      diferencia: facturacionServicio ? facturacionServicio - row.valorTeorico : 0,
       comision: 0,
-      fuente: hasRemitos ? "Remitos" : "Manual",
+      fuente: row.hasRemitos ? "Remitos" : "Manual",
     };
-  };
-  const fazonRows: FazonResult[] = [
-    buildFazonRow("IF_FAZON_325", litrosFazon325, params.densidadOptiblue, toneladasFazon325, params.precioFazon325UsdTon, hasRemitosFazon325),
-    buildFazonRow("IF_FAZON_IND", litrosFazonIndustrial, params.densidadIndustrial, toneladasFazonIndustrial, params.precioFazonIndustrialUsdTon, hasRemitosFazonIndustrial),
-  ];
-  const fazonTotalTeorico = fazonRows.reduce((total, row) => total + row.valorTeorico, 0);
+  });
   const fazonTotalFacturado = fazonRows.reduce((total, row) => total + row.facturacion, 0);
   const fazonTotalIngresoGestion = fazonRows.reduce((total, row) => total + row.ingresoGestion, 0);
   const fazon: CostModel["fazon"] = {
