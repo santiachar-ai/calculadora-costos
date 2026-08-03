@@ -3332,6 +3332,10 @@ function FazonPanel({
     const costFactors = [
       ...costNatureRows.map((factor) => ({
         ...factor,
+        assignedToFazon:
+          factor.label === "Gas compras" && row.producto !== "IF_FAZON_IND"
+            ? 0
+            : factor.assignedToFazon,
         assignedToProduct:
           factor.label === "Gas compras"
             ? row.producto === "IF_FAZON_IND"
