@@ -3068,6 +3068,47 @@ function FazonPanel({
       costFactors,
     };
   });
+  const fazon325Comparison = realCostByFazonProduct.find((row) => row.producto === "IF_FAZON_325");
+  const fazonIndustrialComparison = realCostByFazonProduct.find((row) => row.producto === "IF_FAZON_IND");
+  const comparisonValue = (
+    row: (typeof realCostByFazonProduct)[number] | undefined,
+    selector: (item: (typeof realCostByFazonProduct)[number]) => number,
+  ) => (row ? selector(row) : 0);
+  const comparisonRows = [
+    { label: "Litros base", format: "number", value: (row: (typeof realCostByFazonProduct)[number]) => row.allocationLiters },
+    { label: "Toneladas", format: "number", value: (row: (typeof realCostByFazonProduct)[number]) => row.toneladas },
+    { label: "Precio USD/TN", format: "usd", value: (row: (typeof realCostByFazonProduct)[number]) => row.precioUsdTon },
+    { label: "Ingreso gestion", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.ingresoGestion },
+    { label: "Comision IF", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.comision },
+    { label: "Mano de obra", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.laborCost },
+    { label: "Depreciacion", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.depreciationCost },
+    { label: "Compras productivas", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.purchasesCost },
+    { label: "Costo total", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.totalCost },
+    { label: "Costo/TN", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.costPerTon },
+    { label: "Ingreso neto", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.netRevenue },
+    { label: "Margen total", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.margin },
+    { label: "Margen/TN", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.marginPerTon },
+    { label: "Margen USD/TN", format: "usd", value: (row: (typeof realCostByFazonProduct)[number]) => row.marginUsdPerTon },
+    { label: "Margen %", format: "pct", value: (row: (typeof realCostByFazonProduct)[number]) => row.marginPct },
+  ];
+  const formatComparison = (value: number, format: string) => {
+    if (format === "money") return money(value);
+    if (format === "usd") return money(value).replace("$", "USD ");
+    if (format === "pct") return pct(value);
+    return number(value);
+  };
+  const bestMarginProduct =
+    fazon325Comparison && fazonIndustrialComparison
+      ? fazon325Comparison.marginUsdPerTon >= fazonIndustrialComparison.marginUsdPerTon
+        ? fazon325Comparison
+        : fazonIndustrialComparison
+      : undefined;
+  const highestCostProduct =
+    fazon325Comparison && fazonIndustrialComparison
+      ? fazon325Comparison.costPerTon >= fazonIndustrialComparison.costPerTon
+        ? fazon325Comparison
+        : fazonIndustrialComparison
+      : undefined;
   const directCostFields = [
     { label: "Mano de obra produccion", value: params.sueldosProduccion, field: "sueldosProduccion" as const },
     { label: "Valor maquinaria USD", value: params.valorMaquinariaFazonUsd, field: "valorMaquinariaFazonUsd" as const },
@@ -3152,6 +3193,54 @@ function FazonPanel({
             <div>
               <span>Lineas de envases</span>
               <strong>{number(model.fazon.totalEnvases)}</strong>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Comparativo</th>
+                  <th>Solucion 32,5</th>
+                  <th>Industrial</th>
+                  <th>Diferencia ind. - 32,5</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonRows.map((row) => {
+                  const value325 = comparisonValue(fazon325Comparison, row.value);
+                  const valueIndustrial = comparisonValue(fazonIndustrialComparison, row.value);
+                  const difference = valueIndustrial - value325;
+
+                  return (
+                    <tr key={`fazon-comparison-${row.label}`}>
+                      <td><strong>{row.label}</strong></td>
+                      <td className={value325 < 0 ? "negative" : undefined}>{formatComparison(value325, row.format)}</td>
+                      <td className={valueIndustrial < 0 ? "negative" : undefined}>{formatComparison(valueIndustrial, row.format)}</td>
+                      <td className={difference < 0 ? "negative" : undefined}>{formatComparison(difference, row.format)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="fazon-summary">
+            <div>
+              <span>Mejor margen USD/TN</span>
+              <strong>{bestMarginProduct?.producto ?? "-"}</strong>
+            </div>
+            <div>
+              <span>Margen ganador</span>
+              <strong className={(bestMarginProduct?.marginUsdPerTon ?? 0) < 0 ? "negative" : undefined}>
+                {money(bestMarginProduct?.marginUsdPerTon ?? 0).replace("$", "USD ")}
+              </strong>
+            </div>
+            <div>
+              <span>Mayor costo/TN</span>
+              <strong>{highestCostProduct?.producto ?? "-"}</strong>
+            </div>
+            <div>
+              <span>Costo/TN mas alto</span>
+              <strong>{money(highestCostProduct?.costPerTon ?? 0)}</strong>
             </div>
           </div>
           <div className="fazon-real-cost">
