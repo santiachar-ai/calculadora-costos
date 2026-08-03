@@ -287,6 +287,8 @@ const PURCHASE_TYPES = [
   "ADMIN VARIOS",
   "ADMIN IVA",
   "IMPUESTOS",
+  "GASTO_OPERATIVO",
+  "GASTO_MANTENIMIENTO",
   "FABRIL_ENERGIA",
   "FABRIL_ELECTRICIDAD",
   "FABRIL_AGUA",
@@ -375,6 +377,16 @@ const PURCHASE_TYPE_DETAILS: Record<
   IMPUESTOS: {
     label: "Impuestos",
     description: "Impuestos no recuperables o cargos fiscales de gestion.",
+    impact: "suma costo",
+  },
+  GASTO_OPERATIVO: {
+    label: "Gasto operativo",
+    description: "Gastos de operacion que afectan el resultado del periodo pero no el costo estandar por litro o tonelada.",
+    impact: "suma costo",
+  },
+  GASTO_MANTENIMIENTO: {
+    label: "Gasto mantenimiento",
+    description: "Reparaciones correctivas y mantenimiento no preventivo tratados como gasto operativo del periodo.",
     impact: "suma costo",
   },
   FABRIL_ENERGIA: {
@@ -478,6 +490,7 @@ const PURCHASE_PRODUCTS = [
   "Industrial",
   "OptiBlue",
   "Planta",
+  "Operacion",
   "Comercial",
   "Administracion",
   "Empresa",
@@ -490,6 +503,7 @@ const PURCHASE_PRODUCTS = [
 
 const COST_CENTERS = [
   "Produccion",
+  "Operacion",
   "Fazon IF",
   "Deposito",
   "Comercial",
@@ -512,6 +526,7 @@ const COST_OBJECTS = [
   "Fazon IF industrial",
   "Almacenaje",
   "Produccion propia",
+  "Operacion",
   "Comercial",
   "Administracion",
   "Logistica",
@@ -598,26 +613,26 @@ const MAY_2026_PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "PUBLICIDAD", proveedor: "Alberti Pablo Alejandro", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
   { articulo: "Cheque rechazado", proveedor: "Construcciones Civil-Mecánica Arrecifes SRL", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
   { articulo: "PUBLICIDAD", proveedor: "Trosset Nicolas", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
-  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Macellari Juan de Dios", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Macellari Juan de Dios", tipo: "GASTO_MANTENIMIENTO", producto: "Operacion" },
   { articulo: "Flete por ventas", proveedor: "Martinelli Brenda", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
   { articulo: "Flete por ventas", proveedor: "RAMIREZ RAMON", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
   { articulo: "Combustible camion", proveedor: "Gastecmor S.A.", tipo: "LOGISTICA_COMB", producto: "OptiBlue" },
   { articulo: "Servicio GAS", proveedor: "Buenos Aires Gas S.A.", tipo: "GAS", producto: "Industrial" },
-  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Fontana Jorge Eduardo y Sicolone Gerardo Oscar", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
-  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Manchot SRL", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
-  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Ricardo Bartoli y Cía. S.A.", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
-  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "RAYFOC Ingeniería + Innovación de Arrecfes S.A.", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Fontana Jorge Eduardo y Sicolone Gerardo Oscar", tipo: "GASTO_MANTENIMIENTO", producto: "Operacion" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Manchot SRL", tipo: "GASTO_MANTENIMIENTO", producto: "Operacion" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Ricardo Bartoli y Cía. S.A.", tipo: "GASTO_MANTENIMIENTO", producto: "Operacion" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "RAYFOC Ingeniería + Innovación de Arrecfes S.A.", tipo: "GASTO_MANTENIMIENTO", producto: "Operacion" },
   { articulo: "Insumos ferretería", proveedor: "Zanzottera Marcelo Oscar", tipo: "FABRIL_INSUMOS", producto: "Planta" },
   { articulo: "Diferencia de Cambio", proveedor: "Compañía de Negocios Agropecuarios CNA S.A.", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
-  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Del Valle José Jesús", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Del Valle José Jesús", tipo: "GASTO_MANTENIMIENTO", producto: "Operacion" },
   { articulo: "Comisionista", proveedor: "Rios Diego Rubén", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
   { articulo: "Comisionista", proveedor: "Gyselink Hugo Daniel", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
   { articulo: "Flete por ventas", proveedor: "FERTILIK S.A.", tipo: "GASTO_COMERCIAL", producto: "Comercial" },
   { articulo: "Calcomanias 15cm x 15cm + laca", proveedor: "Gomez Juan María", tipo: "ETIQUETA_CONTROL", producto: "OptiBlue" },
-  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Fabian A. Bethular y Luis P. Bethular", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "Fabian A. Bethular y Luis P. Bethular", tipo: "GASTO_MANTENIMIENTO", producto: "Operacion" },
   { articulo: "Viaticos hotel", proveedor: "CRIADO RITA GRACIELA", tipo: "LOGISTICA", producto: "OptiBlue" },
-  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "P. Bouvier Maquinarias S.A.S.", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
-  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "MG Ballester SRL", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "P. Bouvier Maquinarias S.A.S.", tipo: "GASTO_MANTENIMIENTO", producto: "Operacion" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "MG Ballester SRL", tipo: "GASTO_MANTENIMIENTO", producto: "Operacion" },
   { articulo: "Calcomanias 23cm x 30cm + laca", proveedor: "Gomez Juan María", tipo: "ETIQUETA_CONTROL", producto: "OptiBlue" },
   { articulo: "Insumos electricidad", proveedor: "Electricidad Total S.A.", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
   { articulo: "Insumos laboratorio", proveedor: "INSTRUMENTAL PASTEUR SRL", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
@@ -709,8 +724,8 @@ const PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Agua", proveedor: "*", tipo: "FABRIL_AGUA", producto: "Planta" },
   { articulo: "Insumos electricidad", proveedor: "*", tipo: "FABRIL_ELECTRICIDAD", producto: "Planta" },
   { articulo: "Combustible planta", proveedor: "*", tipo: "FABRIL_COMBUSTIBLE", producto: "Planta" },
-  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "*", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
-  { articulo: "Reparacion y mantenimiento galpon", proveedor: "*", tipo: "FABRIL_MANTENIMIENTO", producto: "Planta" },
+  { articulo: "Reparacion y mantenimiento maquinaria", proveedor: "*", tipo: "GASTO_MANTENIMIENTO", producto: "Operacion" },
+  { articulo: "Reparacion y mantenimiento galpon", proveedor: "*", tipo: "GASTO_MANTENIMIENTO", producto: "Operacion" },
   { articulo: "Insumos laboratorio", proveedor: "*", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
   { articulo: "Analisis quimicos", proveedor: "*", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
   { articulo: "Productos de Limpieza", proveedor: "*", tipo: "FABRIL_LIMPIEZA", producto: "Planta" },
@@ -718,7 +733,13 @@ const PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "SERVICIO AREA PROTEGIDA", proveedor: "*", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
   { articulo: "Reparacion y mantenimiento camion", proveedor: "*", tipo: "COSTO FIJO", producto: "Logistica" },
   { articulo: "Instalacion maquinaria", proveedor: "*", tipo: "INVERSION", producto: "Planta" },
+  { articulo: "Instalacion de maquinaria", proveedor: "*", tipo: "INVERSION", producto: "Planta" },
+  { articulo: "Instalacion maquinarias", proveedor: "*", tipo: "INVERSION", producto: "Planta" },
+  { articulo: "Instalacion de maquinarias", proveedor: "*", tipo: "INVERSION", producto: "Planta" },
   { articulo: "Instalacion mejoras", proveedor: "*", tipo: "INVERSION", producto: "Planta" },
+  { articulo: "Montaje maquinaria", proveedor: "*", tipo: "INVERSION", producto: "Planta" },
+  { articulo: "Montaje de maquinaria", proveedor: "*", tipo: "INVERSION", producto: "Planta" },
+  { articulo: "Puesta en marcha", proveedor: "*", tipo: "INVERSION", producto: "Planta" },
   { articulo: "OBRA", proveedor: "*", tipo: "INVERSION", producto: "Planta" },
   { articulo: "Construccion nave industrial 20x48", proveedor: "*", tipo: "INVERSION", producto: "Planta" },
   { articulo: "Bidon 10L", proveedor: "*", tipo: "ENVASE_CONTROL", producto: "OptiBlue" },
@@ -824,6 +845,7 @@ function inferCostCenter(tipo: string, producto: string) {
   }
   if (tipo.startsWith("FABRIL") || ["MP", "MP_FLETE", "GAS"].includes(tipo)) return "Produccion";
   if (tipo.startsWith("LOGISTICA") || tipo === "FLETE") return "Logistica";
+  if (tipo === "GASTO_OPERATIVO" || tipo === "GASTO_MANTENIMIENTO" || producto === "Operacion") return "Operacion";
   if (tipo.startsWith("ADMIN") || producto === "Administracion") return "Administracion";
   if (tipo === "GASTO_COMERCIAL" || producto === "Comercial") return "Comercial";
   if (tipo === "RESULTADO_FINANCIERO" || producto === "Financiero") return "Financiero";
@@ -841,6 +863,7 @@ function inferCostObject(tipo: string, producto: string) {
   if (producto === "OptiBlue" || producto.startsWith("OPTIBLUE")) return "Solucion 32,5";
   if (tipo === "MP" && key(producto).includes("UREA")) return "Urea";
   if (producto === "Comercial") return "Comercial";
+  if (producto === "Operacion") return "Operacion";
   if (producto === "Administracion") return "Administracion";
   if (producto === "Logistica") return "Logistica";
   if (producto === "Control") return "Control";
@@ -853,7 +876,7 @@ function inferCostObject(tipo: string, producto: string) {
 function inferDistributionCriteria(tipo: string, producto: string) {
   if (["NO_COSTO", "NO_OPERATIVO_FISCAL", "INVERSION", "RESULTADO_FINANCIERO"].includes(tipo)) return "No aplica";
   if (producto === "IF Fazon" || producto === "IF_FAZON_325" || producto === "IF_FAZON_IND") return "Toneladas producidas";
-  if (["MP", "MP_FLETE", "FLETE", "GASTO_COMERCIAL", "COMISION_IF", "LOGISTICA_COMB", "LOGISTICA"].includes(tipo)) {
+  if (["MP", "MP_FLETE", "FLETE", "GASTO_COMERCIAL", "GASTO_OPERATIVO", "GASTO_MANTENIMIENTO", "COMISION_IF", "LOGISTICA_COMB", "LOGISTICA"].includes(tipo)) {
     return "Directo";
   }
   if (tipo.startsWith("FABRIL") || tipo === "GAS" || tipo === "COSTO FIJO") return "Litros producidos";
@@ -862,18 +885,38 @@ function inferDistributionCriteria(tipo: string, producto: string) {
 }
 
 function purchaseRuleWithManagement(rule: PurchaseRule): PurchaseRule {
-  const centroCosto = rule.centroCosto || inferCostCenter(rule.tipo, rule.producto);
-  const objetoCosto = rule.objetoCosto || inferCostObject(rule.tipo, rule.producto);
-  const criterioDistribucion = rule.criterioDistribucion || inferDistributionCriteria(rule.tipo, rule.producto);
-  const impact = PURCHASE_TYPE_DETAILS[rule.tipo]?.impact;
+  const normalizedArticle = key(rule.articulo);
+  const shouldTreatAsMaintenanceExpense =
+    rule.tipo === "FABRIL_MANTENIMIENTO" &&
+    normalizedArticle.includes("REPARACION") &&
+    normalizedArticle.includes("MANTENIMIENTO") &&
+    (normalizedArticle.includes("MAQUINARIA") || normalizedArticle.includes("GALPON"));
+  const normalizedRule = shouldTreatAsMaintenanceExpense
+    ? {
+        ...rule,
+        tipo: "GASTO_MANTENIMIENTO",
+        producto: "Operacion",
+        centroCosto: "Operacion",
+        objetoCosto: "Operacion",
+        criterioDistribucion: "Directo",
+      }
+    : rule;
+  const centroCosto = normalizedRule.centroCosto || inferCostCenter(normalizedRule.tipo, normalizedRule.producto);
+  const objetoCosto = normalizedRule.objetoCosto || inferCostObject(normalizedRule.tipo, normalizedRule.producto);
+  const criterioDistribucion = normalizedRule.criterioDistribucion || inferDistributionCriteria(normalizedRule.tipo, normalizedRule.producto);
+  const impact = PURCHASE_TYPE_DETAILS[normalizedRule.tipo]?.impact;
   return {
-    ...rule,
+    ...normalizedRule,
     centroCosto,
     objetoCosto,
     criterioDistribucion,
     incluyeEnCosto: rule.incluyeEnCosto ?? (impact !== "fuera del costo"),
     observacion: rule.observacion ?? "",
   };
+}
+
+function normalizePurchaseRules(rules: PurchaseRule[]) {
+  return rules.map((rule) => purchaseRuleWithManagement(rule));
 }
 
 function money(value: number) {
@@ -1847,20 +1890,22 @@ function buildCostModel(
   const totalPurchaseRows = (rows: PurchaseRow[]) => rows.reduce((total, row) => total + row.total, 0);
   const adminRows = purchasesByTypes(["ADMIN", "ADMIN VARIOS", "ADMIN IVA", "IMPUESTOS"]);
   const commercialRows = purchasesByTypes(["GASTO_COMERCIAL"]);
+  const operationalRows = purchasesByTypes(["GASTO_OPERATIVO", "GASTO_MANTENIMIENTO"]);
   const fixedCostRows = purchasesByTypes(["COSTO FIJO"]);
   const gastosAdmin =
     params.sueldosAdmin +
     totalPurchaseRows(adminRows);
   const gastosComerciales = totalPurchaseRows(commercialRows);
+  const gastosOperativos = totalPurchaseRows(operationalRows);
   const costosFijos = totalPurchaseRows(fixedCostRows);
-  const resultadoCore = resultadoIndustrial - gastosAdmin - gastosComerciales - costosFijos;
+  const resultadoCore = resultadoIndustrial - gastosAdmin - gastosComerciales - gastosOperativos - costosFijos;
   const margenEquilibrioLitro = litrosTotales ? resultadoIndustrial / litrosTotales : 0;
   const puntoEquilibrioLitros =
     margenEquilibrioLitro > 0
-      ? (gastosAdmin + gastosComerciales + costosFijos) / margenEquilibrioLitro
+      ? (gastosAdmin + gastosComerciales + gastosOperativos + costosFijos) / margenEquilibrioLitro
       : 0;
   const indirectosGestionLitro = litrosTotales
-    ? (gastosAdmin + gastosComerciales + costosFijos) / litrosTotales
+    ? (gastosAdmin + gastosComerciales + gastosOperativos + costosFijos) / litrosTotales
     : 0;
   const indirectosGestionGroups: CostBreakdownGroup[] = [
     {
@@ -1875,6 +1920,13 @@ function buildCostModel(
       value: gastosComerciales,
       perLiter: litrosTotales ? gastosComerciales / litrosTotales : 0,
       purchases: commercialRows,
+      source: "Compras",
+    },
+    {
+      label: "Operacion y mantenimiento",
+      value: gastosOperativos,
+      perLiter: litrosTotales ? gastosOperativos / litrosTotales : 0,
+      purchases: operationalRows,
       source: "Compras",
     },
     {
@@ -2000,7 +2052,7 @@ function buildCostModel(
     };
   });
   const costDriverByProduct = new Map(costDrivers.map((row) => [row.producto, row]));
-  const totalIndirectosGestion = gastosAdmin + gastosComerciales + costosFijos;
+  const totalIndirectosGestion = gastosAdmin + gastosComerciales + gastosOperativos + costosFijos;
   const productLineProfit: ProductLineProfit[] = products
     .map((product) => {
       const driver = costDriverByProduct.get(product.producto);
@@ -2119,7 +2171,7 @@ function buildCostModel(
     productLineProfit,
     insights,
     indirectosGestion: {
-      total: gastosAdmin + gastosComerciales + costosFijos,
+      total: gastosAdmin + gastosComerciales + gastosOperativos + costosFijos,
       perLiter: indirectosGestionLitro,
       groups: indirectosGestionGroups,
     },
@@ -2204,7 +2256,7 @@ export function CostCalculator() {
 
       try {
         if (saved) setParams({ ...DEFAULT_PARAMS, ...JSON.parse(saved) });
-        if (savedPurchaseRules) setCustomPurchaseRules(JSON.parse(savedPurchaseRules));
+        if (savedPurchaseRules) setCustomPurchaseRules(normalizePurchaseRules(JSON.parse(savedPurchaseRules)));
         if (savedSalesRules) setCustomSalesRules(JSON.parse(savedSalesRules));
         if (savedAccrualOverrides) setAccrualOverrides(JSON.parse(savedAccrualOverrides));
 
@@ -2239,7 +2291,7 @@ export function CostCalculator() {
         if (configuration.params) {
           setParams({ ...DEFAULT_PARAMS, ...configuration.params });
         }
-        setCustomPurchaseRules(configuration.purchaseRules ?? []);
+        setCustomPurchaseRules(normalizePurchaseRules(configuration.purchaseRules ?? []));
         setCustomSalesRules(configuration.salesRules ?? []);
         setConfigurationSource("api");
       } catch {
@@ -2445,7 +2497,7 @@ export function CostCalculator() {
   function applyConfigurationPayload(raw: string) {
     const payload = JSON.parse(raw) as Partial<CostConfigurationPayload>;
     setParams({ ...DEFAULT_PARAMS, ...(payload.params ?? {}) });
-    setCustomPurchaseRules(payload.purchaseRules ?? []);
+    setCustomPurchaseRules(normalizePurchaseRules(payload.purchaseRules ?? []));
     setCustomSalesRules(payload.salesRules ?? []);
     setAccrualOverrides(payload.accrualOverrides ?? []);
     setConfigurationLoaded(true);
@@ -3200,7 +3252,7 @@ function FazonPanel({
     { label: "Agua compras", value: totalPurchases(waterRows), purchases: waterRows },
     { label: "Combustible de planta compras", value: totalPurchases(fuelRows), purchases: fuelRows },
     { label: "Gas compras", value: totalPurchases(gasRows), purchases: gasRows },
-    { label: "Mantenimiento compras", value: totalPurchases(maintenanceRows), purchases: maintenanceRows },
+    { label: "Mantenimiento preventivo compras", value: totalPurchases(maintenanceRows), purchases: maintenanceRows },
     { label: "Control de calidad compras", value: totalPurchases(qualityRows), purchases: qualityRows },
     { label: "Limpieza de planta compras", value: totalPurchases(cleaningRows), purchases: cleaningRows },
     { label: "Insumos fabriles compras", value: totalPurchases(suppliesRows), purchases: suppliesRows },
