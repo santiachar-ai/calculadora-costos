@@ -3040,17 +3040,31 @@ function FazonPanel({
   const realCostByFazonProduct = fazonRowsForAllocation.map((row) => {
     const allocationLiters = row.litros || (row.toneladas && row.densidad ? (row.toneladas * 1000) / row.densidad : 0);
     const productShare = fazonAllocationBase ? allocationLiters / fazonAllocationBase : 1 / Math.max(fazonRowsForAllocation.length, 1);
-    const laborCost = params.sueldosProduccion * fazonProductionShare * productShare;
-    const depreciationCost = depreciationMonthly * fazonProductionShare * productShare;
-    const purchasesCost = purchasesFabrilCost * fazonProductionShare * productShare;
-    const totalCost = laborCost + depreciationCost + purchasesCost;
-    const netRevenue = row.ingresoGestion - row.comision;
-    const margin = netRevenue - totalCost;
     const costFactors = costNatureRows.map((factor) => ({
       ...factor,
-      assignedToProduct: factor.assignedToFazon * productShare,
-      costPerTon: row.toneladas ? (factor.assignedToFazon * productShare) / row.toneladas : 0,
+      assignedToProduct:
+        factor.label === "Gas compras"
+          ? row.producto === "IF_FAZON_IND"
+            ? factor.assignedToFazon
+            : 0
+          : factor.assignedToFazon * productShare,
+      assignmentNote: factor.label === "Gas compras" ? "Solo industrial" : "Por participacion en litros",
+    })).map((factor) => ({
+      ...factor,
+      costPerTon: row.toneladas ? factor.assignedToProduct / row.toneladas : 0,
     }));
+    const laborCost = costFactors
+      .filter((factor) => factor.source === "Manual")
+      .reduce((total, factor) => total + factor.assignedToProduct, 0);
+    const depreciationCost = costFactors
+      .filter((factor) => factor.source === "Manual USD")
+      .reduce((total, factor) => total + factor.assignedToProduct, 0);
+    const purchasesCost = costFactors
+      .filter((factor) => factor.source !== "Manual" && factor.source !== "Manual USD")
+      .reduce((total, factor) => total + factor.assignedToProduct, 0);
+    const totalCost = costFactors.reduce((total, factor) => total + factor.assignedToProduct, 0);
+    const netRevenue = row.ingresoGestion - row.comision;
+    const margin = netRevenue - totalCost;
     return {
       ...row,
       allocationLiters,
@@ -3451,6 +3465,7 @@ function FazonPanel({
                             <th>Asignado linea</th>
                             <th>Costo/TN</th>
                             <th>Fuente</th>
+                            <th>Criterio</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -3462,6 +3477,7 @@ function FazonPanel({
                               <td>{money(factor.assignedToProduct)}</td>
                               <td>{money(factor.costPerTon)}</td>
                               <td>{factor.source ?? `${factor.purchases.length} compras`}</td>
+                              <td>{factor.assignmentNote}</td>
                             </tr>
                           ))}
                         </tbody>
