@@ -48,6 +48,7 @@ type CostParams = {
   litrosPorIbc: number;
   pctCombustibleOptiblue: number;
   costoVariableFazonLitro: number;
+  costoResinaBolsa25kg: number;
   dolarDivisaBna: number;
   precioFazon325UsdTon: number;
   precioFazonIndustrialUsdTon: number;
@@ -589,6 +590,7 @@ const DEFAULT_PARAMS: CostParams = {
   litrosPorIbc: 1000,
   pctCombustibleOptiblue: 0.8,
   costoVariableFazonLitro: 0,
+  costoResinaBolsa25kg: 0,
   dolarDivisaBna: 0,
   precioFazon325UsdTon: 0,
   precioFazonIndustrialUsdTon: 0,
@@ -2776,6 +2778,7 @@ export function CostCalculator() {
             <AssumptionInput label="Muestras/doc." value={params.consumoMuestrasPorComprobante} onChange={(value) => updateParam("consumoMuestrasPorComprobante", value)} />
             <AssumptionInput label="Precintos/IBC" value={params.consumoPrecintosPorIbc} onChange={(value) => updateParam("consumoPrecintosPorIbc", value)} />
             <AssumptionInput label="Litros/IBC" value={params.litrosPorIbc} onChange={(value) => updateParam("litrosPorIbc", value)} />
+            <AssumptionInput label="Resina bolsa 25kg" value={params.costoResinaBolsa25kg} onChange={(value) => updateParam("costoResinaBolsa25kg", value)} />
             <AssumptionInput label="IIBB" suffix="%" value={params.iibbPct * 100} onChange={(value) => updateParam("iibbPct", value / 100)} />
             <AssumptionInput label="Comision" suffix="%" value={params.comisionPct * 100} onChange={(value) => updateParam("comisionPct", value / 100)} />
             <AssumptionInput label="Combustible OB" suffix="%" value={params.pctCombustibleOptiblue * 100} onChange={(value) => updateParam("pctCombustibleOptiblue", value / 100)} />
@@ -3270,13 +3273,7 @@ function FazonPanel({
       ? 1
       : 0;
   const totalProductionCostPool = costPoolRows.reduce((total, row) => total + row.value, 0);
-  const totalFazonCost = totalProductionCostPool * fazonProductionShare;
-  const costPerTon = model.fazon.totalToneladas ? totalFazonCost / model.fazon.totalToneladas : 0;
   const netFazonRevenue = model.fazon.totalIngresoGestion - model.fazon.totalComisiones;
-  const marginTotal = netFazonRevenue - totalFazonCost;
-  const marginPerTon = model.fazon.totalToneladas ? marginTotal / model.fazon.totalToneladas : 0;
-  const marginUsdPerTon = params.dolarDivisaBna ? marginPerTon / params.dolarDivisaBna : 0;
-  const marginPct = netFazonRevenue ? marginTotal / netFazonRevenue : 0;
   const costQualityChecks = [
     {
       label: "Volumen fazon",
@@ -3312,16 +3309,39 @@ function FazonPanel({
   const realCostByFazonProduct = fazonRowsForAllocation.map((row) => {
     const allocationLiters = row.litros || (row.toneladas && row.densidad ? (row.toneladas * 1000) / row.densidad : 0);
     const productShare = fazonAllocationBase ? allocationLiters / fazonAllocationBase : 1 / Math.max(fazonRowsForAllocation.length, 1);
-    const costFactors = costNatureRows.map((factor) => ({
-      ...factor,
-      assignedToProduct:
-        factor.label === "Gas compras"
-          ? row.producto === "IF_FAZON_IND"
-            ? factor.assignedToFazon
-            : 0
-          : factor.assignedToFazon * productShare,
-      assignmentNote: factor.label === "Gas compras" ? "Solo industrial" : "Por participacion en litros",
-    })).map((factor) => ({
+    const waterLiters325 =
+      row.producto === "IF_FAZON_325"
+        ? allocationLiters * params.densidadOptiblue * (1 - params.concentracionOptiblue)
+        : 0;
+    const resinBags325 = waterLiters325 ? (waterLiters325 / 140000) * 4 : 0;
+    const resinCost325 = resinBags325 * params.costoResinaBolsa25kg;
+    const productSpecificFactors = resinCost325
+      ? [
+          {
+            label: "Resina 32,5",
+            value: resinCost325,
+            share: 0,
+            assignedToFazon: resinCost325,
+            source: "Manual resina",
+            purchases: [] as PurchaseRow[],
+            assignedToProduct: resinCost325,
+            assignmentNote: "Solo solucion 32,5 - 4 bolsas cada 140.000 L agua",
+          },
+        ]
+      : [];
+    const costFactors = [
+      ...costNatureRows.map((factor) => ({
+        ...factor,
+        assignedToProduct:
+          factor.label === "Gas compras"
+            ? row.producto === "IF_FAZON_IND"
+              ? factor.assignedToFazon
+              : 0
+            : factor.assignedToFazon * productShare,
+        assignmentNote: factor.label === "Gas compras" ? "Solo industrial" : "Por participacion en litros",
+      })),
+      ...productSpecificFactors,
+    ].map((factor) => ({
       ...factor,
       costPerTon: row.toneladas ? factor.assignedToProduct / row.toneladas : 0,
     }));
@@ -3332,7 +3352,7 @@ function FazonPanel({
       .filter((factor) => factor.source === "Manual USD")
       .reduce((total, factor) => total + factor.assignedToProduct, 0);
     const purchasesCost = costFactors
-      .filter((factor) => factor.source !== "Manual" && factor.source !== "Manual USD")
+      .filter((factor) => factor.source !== "Manual" && factor.source !== "Manual USD" && factor.source !== "Manual resina")
       .reduce((total, factor) => total + factor.assignedToProduct, 0);
     const totalCost = costFactors.reduce((total, factor) => total + factor.assignedToProduct, 0);
     const netRevenue = row.ingresoGestion - row.comision;
@@ -3351,9 +3371,17 @@ function FazonPanel({
       marginPerTon: row.toneladas ? margin / row.toneladas : 0,
       marginUsdPerTon: row.toneladas && params.dolarDivisaBna ? margin / row.toneladas / params.dolarDivisaBna : 0,
       marginPct: netRevenue ? margin / netRevenue : 0,
+      resinBags325,
+      waterLiters325,
       costFactors,
     };
   });
+  const totalFazonCost = realCostByFazonProduct.reduce((total, row) => total + row.totalCost, 0);
+  const costPerTon = model.fazon.totalToneladas ? totalFazonCost / model.fazon.totalToneladas : 0;
+  const marginTotal = netFazonRevenue - totalFazonCost;
+  const marginPerTon = model.fazon.totalToneladas ? marginTotal / model.fazon.totalToneladas : 0;
+  const marginUsdPerTon = params.dolarDivisaBna ? marginPerTon / params.dolarDivisaBna : 0;
+  const marginPct = netFazonRevenue ? marginTotal / netFazonRevenue : 0;
   const fazon325Comparison = realCostByFazonProduct.find((row) => row.producto === "IF_FAZON_325");
   const fazonIndustrialComparison = realCostByFazonProduct.find((row) => row.producto === "IF_FAZON_IND");
   const comparisonValue = (
@@ -3363,11 +3391,15 @@ function FazonPanel({
   const comparisonRows = [
     { label: "Litros base", format: "number", value: (row: (typeof realCostByFazonProduct)[number]) => row.allocationLiters },
     { label: "Toneladas", format: "number", value: (row: (typeof realCostByFazonProduct)[number]) => row.toneladas },
+    { label: "Agua desmin. estimada", format: "number", value: (row: (typeof realCostByFazonProduct)[number]) => row.waterLiters325 },
+    { label: "Bolsas resina 25kg", format: "number", value: (row: (typeof realCostByFazonProduct)[number]) => row.resinBags325 },
     { label: "Precio USD/TN", format: "usd", value: (row: (typeof realCostByFazonProduct)[number]) => row.precioUsdTon },
     { label: "Ingreso gestion", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.ingresoGestion },
     { label: "Comision IF", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.comision },
     { label: "Mano de obra", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.laborCost },
     { label: "Depreciacion", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.depreciationCost },
+    { label: "Resina 32,5", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) =>
+      row.costFactors.find((factor) => factor.label === "Resina 32,5")?.assignedToProduct ?? 0 },
     { label: "Compras productivas", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.purchasesCost },
     { label: "Costo total", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.totalCost },
     { label: "Costo/TN", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.costPerTon },
@@ -3397,6 +3429,7 @@ function FazonPanel({
       : undefined;
   const directCostFields = [
     { label: "Mano de obra produccion", value: params.sueldosProduccion, field: "sueldosProduccion" as const },
+    { label: "Resina bolsa 25kg", value: params.costoResinaBolsa25kg, field: "costoResinaBolsa25kg" as const },
     { label: "Valor maquinaria USD", value: params.valorMaquinariaFazonUsd, field: "valorMaquinariaFazonUsd" as const },
     { label: "Vida util años", value: params.vidaUtilMaquinariaFazonAnios, field: "vidaUtilMaquinariaFazonAnios" as const },
   ];
