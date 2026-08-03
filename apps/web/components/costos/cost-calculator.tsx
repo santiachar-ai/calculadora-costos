@@ -270,15 +270,7 @@ const ACCRUAL_OVERRIDES_STORAGE_KEY = "erp-costos-devengamiento-compras-v1";
 
 const ACCRUAL_SENSITIVE_PURCHASE_TYPES = [
   "FABRIL_ENERGIA",
-  "FABRIL_AGUA",
-  "FABRIL_COMBUSTIBLE",
   "GAS",
-  "FABRIL_MANTENIMIENTO",
-  "FABRIL_CONTROL_CALIDAD",
-  "FABRIL_LIMPIEZA",
-  "FABRIL_INSUMOS",
-  "FABRIL_SEGURIDAD",
-  "COSTO FABRIL",
 ];
 
 const PURCHASE_TYPES = [
@@ -3082,10 +3074,10 @@ function AccrualPanel({
       <div className="section-head">
         <div>
           <p className="eyebrow">Devengamiento</p>
-          <h2>Servicios y costos fabriles por periodo</h2>
+          <h2>Gas y energia por periodo</h2>
           <p>
-            Ajusta el mes de costo de facturas sensibles. El calculo toma solo las compras cuyo periodo
-            de costo coincide con el mes analizado.
+            Ajusta el mes de costo de facturas de gas y energia. El calculo toma solo esas compras
+            cuando su periodo de costo coincide con el mes analizado.
           </p>
         </div>
         <div className="driver-summary">
@@ -3104,7 +3096,7 @@ function AccrualPanel({
             placeholder="Factura, proveedor, articulo o rubro"
           />
         </label>
-        <span>{number(rows.length)} compras sensibles</span>
+        <span>{number(rows.length)} facturas de gas/energia</span>
       </div>
       <div className="table-wrap">
         <table>
@@ -3153,7 +3145,7 @@ function AccrualPanel({
             })}
             {!rows.length ? (
               <tr>
-                <td colSpan={9}>No hay compras sensibles para devengar o no coinciden con el filtro.</td>
+                <td colSpan={9}>No hay facturas de gas o energia para devengar, o no coinciden con el filtro.</td>
               </tr>
             ) : null}
           </tbody>
