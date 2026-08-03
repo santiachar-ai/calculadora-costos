@@ -27,6 +27,7 @@ type SalesRule = {
 };
 
 type CostParams = {
+  periodoAnalisis: string;
   concentracionOptiblue: number;
   concentracionIndustrial: number;
   densidadOptiblue: number;
@@ -63,6 +64,7 @@ type CostParams = {
 };
 
 type PurchaseRow = {
+  fecha: string;
   comprobante: string;
   articulo: string;
   proveedor: string;
@@ -71,6 +73,15 @@ type PurchaseRow = {
   total: number;
   tipo: string;
   producto: string;
+  periodoFactura: string;
+  periodoCosto: string;
+  incluirEnCosto: boolean;
+  devengamientoSensible: boolean;
+};
+
+type PurchaseAccrualOverride = {
+  id: string;
+  periodoCosto: string;
 };
 
 type SaleRow = {
@@ -255,6 +266,20 @@ const PURCHASE_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-compras-v1";
 const SALES_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-ventas-v1";
 const REMITOS_FILE_STORAGE_KEY = "erp-costos-ultimo-archivo-remitos-v1";
 const COST_MODEL_SNAPSHOT_STORAGE_KEY = "erp-costos-modelo-calculado-v1";
+const ACCRUAL_OVERRIDES_STORAGE_KEY = "erp-costos-devengamiento-compras-v1";
+
+const ACCRUAL_SENSITIVE_PURCHASE_TYPES = [
+  "FABRIL_ENERGIA",
+  "FABRIL_AGUA",
+  "FABRIL_COMBUSTIBLE",
+  "GAS",
+  "FABRIL_MANTENIMIENTO",
+  "FABRIL_CONTROL_CALIDAD",
+  "FABRIL_LIMPIEZA",
+  "FABRIL_INSUMOS",
+  "FABRIL_SEGURIDAD",
+  "COSTO FABRIL",
+];
 
 const PURCHASE_TYPES = [
   "MP",
@@ -527,6 +552,7 @@ type CostConfigurationPayload = {
   params: CostParams | null;
   purchaseRules: PurchaseRule[];
   salesRules: SalesRule[];
+  accrualOverrides?: PurchaseAccrualOverride[];
 };
 
 const API_BASE_URL =
@@ -535,6 +561,7 @@ const COSTS_CONFIG_MODE =
   process.env.NEXT_PUBLIC_COSTS_CONFIG_MODE ?? "api";
 
 const DEFAULT_PARAMS: CostParams = {
+  periodoAnalisis: "2026-05",
   concentracionOptiblue: 0.325,
   concentracionIndustrial: 0.46,
   densidadOptiblue: 1.09,
@@ -951,6 +978,46 @@ async function persistCostConfiguration(payload: CostConfigurationPayload) {
 
 function isDateLike(value: unknown) {
   return value instanceof Date || /^\d{4}-\d{2}-\d{2}/.test(text(value));
+}
+
+function periodFromDate(value: unknown) {
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  const raw = text(value);
+  if (!raw) return "";
+
+  const iso = raw.match(/^(\d{4})[-/](\d{1,2})/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}`;
+
+  const local = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
+  if (local) {
+    const year = local[3].length === 2 ? `20${local[3]}` : local[3];
+    return `${year}-${local[2].padStart(2, "0")}`;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isFinite(parsed.getTime())) {
+    return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  return "";
+}
+
+function purchaseAccrualId(row: {
+  comprobante: string;
+  articulo: string;
+  proveedor: string;
+  total: number;
+}) {
+  return [row.comprobante, row.proveedor, row.articulo, Math.round(row.total * 100) / 100]
+    .map((value) => key(value))
+    .join("|");
+}
+
+function isAccrualSensitiveType(tipo: string) {
+  return ACCRUAL_SENSITIVE_PURCHASE_TYPES.includes(tipo);
 }
 
 function groupedPurchaseRowsFromSheet(workbook: XLSX.WorkBook, sheetName: string): RawRow[] {
@@ -1418,6 +1485,7 @@ function buildCostModel(
   params: CostParams,
   purchaseRules: PurchaseRule[],
   salesRules: SalesRule[],
+  accrualOverrides: PurchaseAccrualOverride[],
 ): CostModel | null {
   const purchaseRows = purchaseRowsFromWorkbook(purchasesWorkbook);
   const saleRows = salesRowsFromWorkbook(salesWorkbook);
@@ -1441,13 +1509,15 @@ function buildCostModel(
   const classifyPurchase = purchaseLookup(purchaseRules);
   const classifySale = salesLookup(salesRules);
   const production = productionMap(effectiveParams);
+  const accrualOverrideMap = new Map(accrualOverrides.map((override) => [override.id, override.periodoCosto]));
 
   const purchases = purchaseRows
     .map((row) => {
       const articulo = text(row.Articulo_ERP);
       const proveedor = text(row.Proveedor);
       const classified = classifyPurchase(articulo, proveedor);
-      return {
+      const purchase = {
+        fecha: text(row.Fecha),
         comprobante: text(row.Comprobante),
         articulo,
         proveedor,
@@ -1457,8 +1527,25 @@ function buildCostModel(
         tipo: classified.tipo,
         producto: classified.producto,
       };
+      const periodoFactura = periodFromDate(row.Fecha);
+      const devengamientoSensible = isAccrualSensitiveType(purchase.tipo);
+      const periodoCosto = accrualOverrideMap.get(purchaseAccrualId(purchase)) ?? periodoFactura;
+      const incluirEnCosto =
+        !devengamientoSensible ||
+        !params.periodoAnalisis ||
+        !periodoCosto ||
+        periodoCosto === params.periodoAnalisis;
+
+      return {
+        ...purchase,
+        periodoFactura,
+        periodoCosto,
+        incluirEnCosto,
+        devengamientoSensible,
+      };
     })
     .filter((row) => row.articulo || row.proveedor || row.total);
+  const costPurchases = purchases.filter((row) => row.incluirEnCosto);
 
   const sales = saleRows
     .map((row) => {
@@ -1488,7 +1575,7 @@ function buildCostModel(
 
   const purchaseTotal = (tipo: string, producto?: string) =>
     sum(
-      purchases,
+      costPurchases,
       (row) => row.tipo === tipo && (!producto || row.producto === producto),
       (row) => row.total,
     );
@@ -1543,12 +1630,12 @@ function buildCostModel(
   const costoFabrilLitro = plantLiters ? costoFabrilTotal / plantLiters : 0;
 
   const ureaIndustrialCantidad = sum(
-    purchases,
+    costPurchases,
     (row) => row.tipo === "MP" && key(row.articulo) === key("UREA GRANULADA 46-0-0"),
     (row) => row.cantidad,
   );
   const ureaIndustrialTotal = sum(
-    purchases,
+    costPurchases,
     (row) => row.tipo === "MP" && key(row.articulo) === key("UREA GRANULADA 46-0-0"),
     (row) => row.total,
   );
@@ -1570,17 +1657,17 @@ function buildCostModel(
       : 0;
 
   const costoBotellaMuestra = weightedUnitCost(
-    purchases,
+    costPurchases,
     (row) => key(row.articulo).includes("BOTELLA PET MUESTRAS"),
     params.costoBotellaMuestra,
   );
   const costoTapaMuestra = weightedUnitCost(
-    purchases,
+    costPurchases,
     (row) => key(row.articulo).includes("TAPA BOTELLA PET MUESTRAS"),
     params.costoTapaMuestra,
   );
   const costoPrecinto = weightedUnitCost(
-    purchases,
+    costPurchases,
     (row) => key(row.articulo).includes("PRECINTO"),
     params.costoPrecinto,
     (row) => {
@@ -2098,6 +2185,7 @@ export function CostCalculator() {
   const [params, setParams] = useState<CostParams>(DEFAULT_PARAMS);
   const [customPurchaseRules, setCustomPurchaseRules] = useState<PurchaseRule[]>([]);
   const [customSalesRules, setCustomSalesRules] = useState<SalesRule[]>([]);
+  const [accrualOverrides, setAccrualOverrides] = useState<PurchaseAccrualOverride[]>([]);
   const [activeView, setActiveView] = useState<CostView>("calculo");
   const [configurationLoaded, setConfigurationLoaded] = useState(false);
   const [configurationSource, setConfigurationSource] = useState<"api" | "local">("local");
@@ -2117,6 +2205,7 @@ export function CostCalculator() {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       const savedPurchaseRules = window.localStorage.getItem(PURCHASE_RULES_STORAGE_KEY);
       const savedSalesRules = window.localStorage.getItem(SALES_RULES_STORAGE_KEY);
+      const savedAccrualOverrides = window.localStorage.getItem(ACCRUAL_OVERRIDES_STORAGE_KEY);
       const savedPurchaseFile = window.localStorage.getItem(PURCHASE_FILE_STORAGE_KEY);
       const savedSalesFile = window.localStorage.getItem(SALES_FILE_STORAGE_KEY);
       const savedRemitosFile = window.localStorage.getItem(REMITOS_FILE_STORAGE_KEY);
@@ -2125,6 +2214,7 @@ export function CostCalculator() {
         if (saved) setParams({ ...DEFAULT_PARAMS, ...JSON.parse(saved) });
         if (savedPurchaseRules) setCustomPurchaseRules(JSON.parse(savedPurchaseRules));
         if (savedSalesRules) setCustomSalesRules(JSON.parse(savedSalesRules));
+        if (savedAccrualOverrides) setAccrualOverrides(JSON.parse(savedAccrualOverrides));
 
         const purchaseFile = parseStoredWorkbook(savedPurchaseFile);
         if (purchaseFile) {
@@ -2145,6 +2235,7 @@ export function CostCalculator() {
         window.localStorage.removeItem(STORAGE_KEY);
         window.localStorage.removeItem(PURCHASE_RULES_STORAGE_KEY);
         window.localStorage.removeItem(SALES_RULES_STORAGE_KEY);
+        window.localStorage.removeItem(ACCRUAL_OVERRIDES_STORAGE_KEY);
         window.localStorage.removeItem(PURCHASE_FILE_STORAGE_KEY);
         window.localStorage.removeItem(SALES_FILE_STORAGE_KEY);
         window.localStorage.removeItem(REMITOS_FILE_STORAGE_KEY);
@@ -2189,10 +2280,16 @@ export function CostCalculator() {
 
   useEffect(() => {
     if (!configurationLoaded) return;
+    window.localStorage.setItem(ACCRUAL_OVERRIDES_STORAGE_KEY, JSON.stringify(accrualOverrides));
+  }, [accrualOverrides, configurationLoaded]);
+
+  useEffect(() => {
+    if (!configurationLoaded) return;
     persistCostConfiguration({
       params,
       purchaseRules: customPurchaseRules,
       salesRules: customSalesRules,
+      accrualOverrides,
     })
       .then(() => setConfigurationSource("api"))
       .catch(() => setConfigurationSource("local"));
@@ -2214,8 +2311,8 @@ export function CostCalculator() {
   );
 
   const model = useMemo(
-    () => buildCostModel(purchasesWorkbook, salesWorkbook, remitosWorkbook, params, purchaseRules, salesRules),
-    [params, purchaseRules, purchasesWorkbook, remitosWorkbook, salesRules, salesWorkbook],
+    () => buildCostModel(purchasesWorkbook, salesWorkbook, remitosWorkbook, params, purchaseRules, salesRules, accrualOverrides),
+    [accrualOverrides, params, purchaseRules, purchasesWorkbook, remitosWorkbook, salesRules, salesWorkbook],
   );
 
   useEffect(() => {
@@ -2315,7 +2412,7 @@ export function CostCalculator() {
     }
   }
 
-  function updateParam(name: keyof CostParams, value: number) {
+  function updateParam(name: keyof CostParams, value: CostParams[keyof CostParams]) {
     setParams((current) => ({ ...current, [name]: value }));
   }
 
@@ -2358,6 +2455,7 @@ export function CostCalculator() {
     setParams({ ...DEFAULT_PARAMS, ...(payload.params ?? {}) });
     setCustomPurchaseRules(payload.purchaseRules ?? []);
     setCustomSalesRules(payload.salesRules ?? []);
+    setAccrualOverrides(payload.accrualOverrides ?? []);
     setConfigurationLoaded(true);
     setError("");
     setConfigurationTransferMessage("Configuracion importada.");
@@ -2446,6 +2544,14 @@ export function CostCalculator() {
 
   function deleteSalesRule(index: number) {
     setCustomSalesRules((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function updateAccrualOverride(id: string, periodoCosto: string, defaultPeriod: string) {
+    setAccrualOverrides((current) => {
+      const rest = current.filter((item) => item.id !== id);
+      if (!periodoCosto || periodoCosto === defaultPeriod) return rest;
+      return [{ id, periodoCosto }, ...rest];
+    });
   }
 
   return (
@@ -2604,6 +2710,14 @@ export function CostCalculator() {
             </button>
           </div>
           <div className="assumption-grid params-grid">
+            <label className="assumption-input">
+              <span>Mes analizado</span>
+              <input
+                type="month"
+                value={params.periodoAnalisis}
+                onChange={(event) => updateParam("periodoAnalisis", event.target.value)}
+              />
+            </label>
             <AssumptionInput label="Urea OptiBlue ton" value={params.costoUreaOptiblueTon} onChange={(value) => updateParam("costoUreaOptiblueTon", value)} />
             <AssumptionInput label="Bidon 10L" value={params.costoBidon10} onChange={(value) => updateParam("costoBidon10", value)} />
             <AssumptionInput label="Bidon 20L" value={params.costoBidon20} onChange={(value) => updateParam("costoBidon20", value)} />
@@ -2681,6 +2795,12 @@ export function CostCalculator() {
             </article>
 
           <RemitosControlPanel model={model} remitosFileName={remitosFileName} />
+
+          <AccrualPanel
+            model={model}
+            periodoAnalisis={params.periodoAnalisis}
+            onChangePeriod={updateAccrualOverride}
+          />
 
           <FazonPanel model={model} params={params} onParamChange={updateParam} />
             </div>
@@ -2935,6 +3055,114 @@ function RemitosControlPanel({ model, remitosFileName }: { model: CostModel; rem
   );
 }
 
+function AccrualPanel({
+  model,
+  periodoAnalisis,
+  onChangePeriod,
+}: {
+  model: CostModel;
+  periodoAnalisis: string;
+  onChangePeriod: (id: string, periodoCosto: string, defaultPeriod: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const normalizedSearch = key(search);
+  const rows = model.purchases
+    .filter((row) => row.devengamientoSensible)
+    .filter((row) =>
+      !normalizedSearch ||
+      [row.comprobante, row.proveedor, row.articulo, row.tipo, row.periodoFactura, row.periodoCosto].some((value) =>
+        key(value).includes(normalizedSearch),
+      ),
+    );
+  const included = rows.filter((row) => row.incluirEnCosto).reduce((total, row) => total + row.total, 0);
+  const excluded = rows.filter((row) => !row.incluirEnCosto).reduce((total, row) => total + row.total, 0);
+
+  return (
+    <section className="table-card">
+      <div className="section-head">
+        <div>
+          <p className="eyebrow">Devengamiento</p>
+          <h2>Servicios y costos fabriles por periodo</h2>
+          <p>
+            Ajusta el mes de costo de facturas sensibles. El calculo toma solo las compras cuyo periodo
+            de costo coincide con el mes analizado.
+          </p>
+        </div>
+        <div className="driver-summary">
+          <span>{periodoAnalisis || "Sin mes"} mes analizado</span>
+          <span>{money(included)} incluido</span>
+          <span>{money(excluded)} fuera del mes</span>
+        </div>
+      </div>
+      <div className="remitos-detail-tools">
+        <label className="master-search">
+          <span>Buscar</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Factura, proveedor, articulo o rubro"
+          />
+        </label>
+        <span>{number(rows.length)} compras sensibles</span>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Estado</th>
+              <th>Comprobante</th>
+              <th>Proveedor</th>
+              <th>Articulo</th>
+              <th>Rubro</th>
+              <th>Importe</th>
+              <th>Fecha factura</th>
+              <th>Periodo factura</th>
+              <th>Periodo costo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => {
+              const id = purchaseAccrualId(row);
+              const defaultPeriod = row.periodoFactura || periodoAnalisis;
+
+              return (
+                <tr key={`${id}-${index}`}>
+                  <td>
+                    <strong className={row.incluirEnCosto ? undefined : "negative"}>
+                      {row.incluirEnCosto ? "Incluida" : "Fuera del mes"}
+                    </strong>
+                  </td>
+                  <td>{row.comprobante || "-"}</td>
+                  <td>{row.proveedor || "-"}</td>
+                  <td><strong>{row.articulo || "-"}</strong></td>
+                  <td>{row.tipo}</td>
+                  <td>{money(row.total)}</td>
+                  <td>{row.fecha || "-"}</td>
+                  <td>{row.periodoFactura || "-"}</td>
+                  <td>
+                    <input
+                      aria-label={`Periodo costo ${row.comprobante || row.articulo}`}
+                      type="month"
+                      value={row.periodoCosto || ""}
+                      onChange={(event) => onChangePeriod(id, event.target.value, defaultPeriod)}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+            {!rows.length ? (
+              <tr>
+                <td colSpan={9}>No hay compras sensibles para devengar o no coinciden con el filtro.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function FazonPanel({
   model,
   params,
@@ -2955,7 +3183,7 @@ function FazonPanel({
   const hasFazon =
     model.fazon.rows.some((row) => row.litros || row.facturacion || row.ingresoGestion || row.valorTeorico) ||
     model.fazon.totalComisiones;
-  const purchasesByTypes = (tipos: string[]) => model.purchases.filter((row) => tipos.includes(row.tipo));
+  const purchasesByTypes = (tipos: string[]) => model.purchases.filter((row) => row.incluirEnCosto && tipos.includes(row.tipo));
   const totalPurchases = (rows: PurchaseRow[]) => rows.reduce((total, row) => total + row.total, 0);
   const depreciationMonthly =
     params.valorMaquinariaFazonUsd && params.dolarDivisaBna && params.vidaUtilMaquinariaFazonAnios
