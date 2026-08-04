@@ -284,6 +284,7 @@ const PURCHASE_TYPES = [
   "LOGISTICA_COMB",
   "LOGISTICA",
   "GAS",
+  "GASTO_ADMINISTRATIVO",
   "ADMIN",
   "ADMIN VARIOS",
   "ADMIN IVA",
@@ -360,9 +361,14 @@ const PURCHASE_TYPE_DETAILS: Record<
     description: "Gas o energia termica asignada a produccion industrial.",
     impact: "suma costo",
   },
+  GASTO_ADMINISTRATIVO: {
+    label: "Gasto administrativo",
+    description: "Gastos administrativos generales de gestion.",
+    impact: "suma costo",
+  },
   ADMIN: {
-    label: "Administracion",
-    description: "Gastos administrativos generales.",
+    label: "Gasto administrativo",
+    description: "Alias historico para gastos administrativos generales.",
     impact: "suma costo",
   },
   "ADMIN VARIOS": {
@@ -655,49 +661,49 @@ const MAY_2026_PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Solución de urea al 32.5% - LTS", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "MP", producto: "OptiBlue" },
   { articulo: "ASESORAMIENTO COMERCIAL", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "COMISION_IF", producto: "IF Fazon" },
   { articulo: "Construcción nave industrial 20x48", proveedor: "Construcciones Civil-Mecánica Arrecifes SRL", tipo: "INVERSION", producto: "Planta" },
-  { articulo: "Combustibles varios", proveedor: "Operadora de Estaciones de Servicio S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "Combustibles varios", proveedor: "Casares Combustibles S.R.L", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "Mercaderia en general", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "Viandas", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Combustibles varios", proveedor: "Operadora de Estaciones de Servicio S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Combustibles varios", proveedor: "Casares Combustibles S.R.L", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Mercaderia en general", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Viandas", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Analisis quimicos", proveedor: "SGS Argentina S.A.", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
   { articulo: "Fletes varios", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "FLETE", producto: "Industrial" },
-  { articulo: "MUEBLES Y UTILES", proveedor: "Electrónica Megatone SRL", tipo: "ADMIN", producto: "Administracion" },
-  { articulo: "Combustible vehiculos", proveedor: "Gastecmor S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "MUEBLES Y UTILES", proveedor: "Electrónica Megatone SRL", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Combustible vehiculos", proveedor: "Gastecmor S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Flete urea", proveedor: "MONTIVERO CRISTIAN ANDRES", tipo: "FLETE", producto: "Industrial" },
-  { articulo: "Reparacion muebles y utiles", proveedor: "Sofluc S.A.", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Reparacion muebles y utiles", proveedor: "Sofluc S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Tambor x 200 lts.", proveedor: "Corigliano José Luis", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
-  { articulo: "Combustible vehiculos", proveedor: "Keh-Com SA", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Combustible vehiculos", proveedor: "Keh-Com SA", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Combustible planta", proveedor: "Gastecmor S.A.", tipo: "FABRIL_COMBUSTIBLE", producto: "Planta" },
-  { articulo: "Compras super", proveedor: "Buroni Comercial S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "Compras super", proveedor: "S.A. Importadora y Exportadora de la Patagonia", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Compras super", proveedor: "Buroni Comercial S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Compras super", proveedor: "S.A. Importadora y Exportadora de la Patagonia", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Poliza seguro automotor", proveedor: "Cooperación Mutual Patronal SMSG", tipo: "COSTO FIJO", producto: "Logistica" },
-  { articulo: "Servicios web", proveedor: "E-Buyplace S.A.", tipo: "ADMIN", producto: "Administracion" },
-  { articulo: "Servicio telefono", proveedor: "AMX Argentina S.A.", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Servicios web", proveedor: "E-Buyplace S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Servicio telefono", proveedor: "AMX Argentina S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Ropa de trabajo", proveedor: "Manufactura Arrecifes S.A.", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
   { articulo: "Bobina zuncho 700mx19mm", proveedor: "Raypac SRL", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
-  { articulo: "Combustibles varios", proveedor: "Keh-Com SA", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Combustibles varios", proveedor: "Keh-Com SA", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "INDUMENTARIA", proveedor: "Confecciones Arrecifes SRL", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
   { articulo: "SERVICIO AREA PROTEGIDA", proveedor: "Millenium Arrecifes Salud S.R.L.", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
-  { articulo: "Combustible vehiculos", proveedor: "Operadora de Estaciones de Servicio S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "TERMINAL ZTECO M1", proveedor: "PRODUCTOS INTEGRA AZULA SRL", tipo: "ADMIN", producto: "Administracion" },
-  { articulo: "Compras super", proveedor: "COTO Centro Integral de Comercialización S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "Combustible vehiculos", proveedor: "Servicentro Arrecifes S.R.L.", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "Gastos libreria", proveedor: "Sucesión de Defferrarri Armando Luis", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Combustible vehiculos", proveedor: "Operadora de Estaciones de Servicio S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "TERMINAL ZTECO M1", proveedor: "PRODUCTOS INTEGRA AZULA SRL", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Compras super", proveedor: "COTO Centro Integral de Comercialización S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Combustible vehiculos", proveedor: "Servicentro Arrecifes S.R.L.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Gastos libreria", proveedor: "Sucesión de Defferrarri Armando Luis", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Hebilla CB Zuncho - caja 6S x 500", proveedor: "Raypac SRL", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
-  { articulo: "Compras super", proveedor: "Cencosud S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Compras super", proveedor: "Cencosud S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "TAPA TERMOSELLABLE", proveedor: "ARECOBLEA S.R.L.", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
   { articulo: "TAPA BIDON", proveedor: "Marillet Oscar Luis", tipo: "ACCESORIO_COMPRA", producto: "Envases" },
   { articulo: "Asesoramiento seguridad e higiene", proveedor: "Zuvilivia Santiago", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
   { articulo: "ESMERILADO", proveedor: "Gomez Juan María", tipo: "FABRIL_INSUMOS", producto: "Planta" },
-  { articulo: "Compras super", proveedor: "DISTRIBUIDORA ZONAL OLIVGURRE S.A.S.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Compras super", proveedor: "DISTRIBUIDORA ZONAL OLIVGURRE S.A.S.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "INDUMENTARIA", proveedor: "Alvarez Jorge L. y Norberto O. SH", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
-  { articulo: "Compras super", proveedor: "Día Argentina S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "Servicio Internet", proveedor: "Coop. Elect. Integral de Prov. de Serv. Pub. y Soc. de Todd Ltda", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Compras super", proveedor: "Día Argentina S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Servicio Internet", proveedor: "Coop. Elect. Integral de Prov. de Serv. Pub. y Soc. de Todd Ltda", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Pesada balanza municipal", proveedor: "A.P.R.A.", tipo: "LOGISTICA", producto: "Logistica" },
-  { articulo: "Compras super", proveedor: "Productos Alimenticios S.A.", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Compras super", proveedor: "Productos Alimenticios S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Productos de Limpieza", proveedor: "Marillet Oscar Luis", tipo: "FABRIL_LIMPIEZA", producto: "Planta" },
   { articulo: "Mantenimiento extintores", proveedor: "García Carlos Alberto", tipo: "FABRIL_SEGURIDAD", producto: "Planta" },
-  { articulo: "Servicio telefono", proveedor: "Coop. Elect. Integral de Prov. de Serv. Pub. y Soc. de Todd Ltda", tipo: "ADMIN", producto: "Administracion" },
+  { articulo: "Servicio telefono", proveedor: "Coop. Elect. Integral de Prov. de Serv. Pub. y Soc. de Todd Ltda", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Descuento recibido x pago en termino", proveedor: "Vigo Carlos A. y Bellfiore Nora M.", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
 ];
 
@@ -711,16 +717,16 @@ const PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "VIATICOS Y SERVICIOS", proveedor: "*", tipo: "LOGISTICA", producto: "OptiBlue" },
   { articulo: "Servicio GAS", proveedor: "*", tipo: "GAS", producto: "Industrial" },
   { articulo: "gas", proveedor: "*", tipo: "GAS", producto: "Industrial" },
-  { articulo: "Combustible vehiculos", proveedor: "*", tipo: "ADMIN VARIOS", producto: "Administracion" },
-  { articulo: "Servicio Internet", proveedor: "*", tipo: "ADMIN", producto: "Administracion" },
-  { articulo: "Servicio telefono", proveedor: "*", tipo: "ADMIN", producto: "Administracion" },
-  { articulo: "Honorarios profesionales", proveedor: "*", tipo: "ADMIN", producto: "Administracion" },
-  { articulo: "Gastos libreria", proveedor: "*", tipo: "ADMIN", producto: "Administracion" },
-  { articulo: "Compras super", proveedor: "*", tipo: "ADMIN VARIOS", producto: "Administracion" },
+  { articulo: "Combustible vehiculos", proveedor: "*", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Servicio Internet", proveedor: "*", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Servicio telefono", proveedor: "*", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Honorarios profesionales", proveedor: "*", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Gastos libreria", proveedor: "*", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
+  { articulo: "Compras super", proveedor: "*", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Impuestos internos", proveedor: "*", tipo: "IMPUESTOS", producto: "Empresa" },
   { articulo: "PUBLICIDAD", proveedor: "*", tipo: "ADMIN IVA", producto: "Comercial" },
-  { articulo: "Servicios web", proveedor: "*", tipo: "ADMIN", producto: "Comercial" },
-  { articulo: "Servicio diseno grafico", proveedor: "*", tipo: "ADMIN", producto: "Comercial" },
+  { articulo: "Servicios web", proveedor: "*", tipo: "GASTO_ADMINISTRATIVO", producto: "Comercial" },
+  { articulo: "Servicio diseno grafico", proveedor: "*", tipo: "GASTO_ADMINISTRATIVO", producto: "Comercial" },
   { articulo: "Servicio Energia electrica", proveedor: "*", tipo: "FABRIL_ENERGIA", producto: "Planta" },
   { articulo: "Servicio Agua", proveedor: "*", tipo: "FABRIL_AGUA", producto: "Planta" },
   { articulo: "Agua", proveedor: "*", tipo: "FABRIL_AGUA", producto: "Planta" },
@@ -848,7 +854,7 @@ function inferCostCenter(tipo: string, producto: string) {
   if (tipo.startsWith("FABRIL") || ["MP", "MP_FLETE", "GAS"].includes(tipo)) return "Produccion";
   if (tipo.startsWith("LOGISTICA") || tipo === "FLETE") return "Logistica";
   if (tipo === "GASTO_OPERATIVO" || tipo === "GASTO_MANTENIMIENTO" || producto === "Operacion") return "Operacion";
-  if (tipo.startsWith("ADMIN") || producto === "Administracion") return "Administracion";
+  if (tipo === "GASTO_ADMINISTRATIVO" || tipo.startsWith("ADMIN") || producto === "Administracion") return "Administracion";
   if (tipo === "GASTO_COMERCIAL" || producto === "Comercial") return "Comercial";
   if (tipo === "RESULTADO_FINANCIERO" || producto === "Financiero") return "Financiero";
   if (tipo === "INVERSION") return "Inversion";
@@ -882,7 +888,7 @@ function inferDistributionCriteria(tipo: string, producto: string) {
     return "Directo";
   }
   if (tipo.startsWith("FABRIL") || tipo === "GAS" || tipo === "COSTO FIJO") return "Litros producidos";
-  if (tipo.startsWith("ADMIN") || tipo === "IMPUESTOS") return "Ventas";
+  if (tipo === "GASTO_ADMINISTRATIVO" || tipo.startsWith("ADMIN") || tipo === "IMPUESTOS") return "Ventas";
   return "Revisar";
 }
 
@@ -1890,7 +1896,7 @@ function buildCostModel(
   const resultadoIndustrial = products.reduce((total, row) => total + row.margenTotal, 0);
   const purchasesByTypes = (tipos: string[]) => purchases.filter((row) => tipos.includes(row.tipo));
   const totalPurchaseRows = (rows: PurchaseRow[]) => rows.reduce((total, row) => total + row.total, 0);
-  const adminRows = purchasesByTypes(["ADMIN", "ADMIN VARIOS", "ADMIN IVA", "IMPUESTOS"]);
+  const adminRows = purchasesByTypes(["GASTO_ADMINISTRATIVO", "ADMIN", "ADMIN VARIOS", "ADMIN IVA", "IMPUESTOS"]);
   const commercialRows = purchasesByTypes(["GASTO_COMERCIAL"]);
   const operationalRows = purchasesByTypes(["GASTO_OPERATIVO", "GASTO_MANTENIMIENTO"]);
   const fixedCostRows = purchasesByTypes(["COSTO FIJO"]);
@@ -4670,7 +4676,7 @@ function AllocationMaster({
   const [newPurchaseRule, setNewPurchaseRule] = useState<PurchaseRule>({
     articulo: "",
     proveedor: "*",
-    tipo: "ADMIN",
+    tipo: "GASTO_ADMINISTRATIVO",
     producto: "Administracion",
     centroCosto: "Administracion",
     objetoCosto: "Administracion",
@@ -4750,7 +4756,7 @@ function AllocationMaster({
     setNewPurchaseRule({
       articulo: "",
       proveedor: "*",
-      tipo: "ADMIN",
+      tipo: "GASTO_ADMINISTRATIVO",
       producto: "Administracion",
       centroCosto: "Administracion",
       objetoCosto: "Administracion",
@@ -5516,7 +5522,7 @@ function PendingPurchaseRule({
   item: { articulo: string; proveedor: string; count: number; total: number };
   onSave: (rule: PurchaseRule) => void;
 }) {
-  const [tipo, setTipo] = useState("ADMIN");
+  const [tipo, setTipo] = useState("GASTO_ADMINISTRATIVO");
   const [producto, setProducto] = useState("Administracion");
 
   return (
