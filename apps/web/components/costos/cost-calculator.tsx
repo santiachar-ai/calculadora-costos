@@ -931,7 +931,8 @@ function money(value: number) {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
   }).format(value || 0);
 }
 
@@ -3423,7 +3424,7 @@ function FazonPanel({
     if (format === "money") return money(value);
     if (format === "usd") return money(value).replace("$", "USD ");
     if (format === "pct") return pct(value);
-    return number(value);
+    return number(value, 2);
   };
   const bestMarginProduct =
     fazon325Comparison && fazonIndustrialComparison
@@ -5082,6 +5083,7 @@ function AllocationMaster({
             <input
               aria-label="Factor litros venta"
               type="number"
+              step="0.01"
               value={newSalesRule.factor}
               onChange={(event) =>
                 setNewSalesRule((current) => ({ ...current, factor: num(event.target.value) }))
@@ -5145,6 +5147,7 @@ function AllocationMaster({
                     <td>
                       <input
                         type="number"
+                        step="0.01"
                         value={rule.factor}
                         onChange={(event) => {
                           const factor = num(event.target.value);
@@ -5586,6 +5589,7 @@ function PendingSalesRule({
       <input
         aria-label="Factor litros"
         type="number"
+        step="0.01"
         value={factor}
         onChange={(event) => setFactor(num(event.target.value))}
       />
