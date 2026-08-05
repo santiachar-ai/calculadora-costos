@@ -3438,6 +3438,66 @@ function FazonPanel({
         ? fazon325Comparison
         : fazonIndustrialComparison
       : undefined;
+  const fazonStatementRows = realCostByFazonProduct.map((row) => {
+    const productiveMargin = row.ingresoGestion - row.totalCost;
+    const resultBeforeTax = productiveMargin - row.comision;
+
+    return {
+      ...row,
+      productiveMargin,
+      resultBeforeTax,
+      resultBeforeTaxPerTon: row.toneladas ? resultBeforeTax / row.toneladas : 0,
+      resultBeforeTaxUsdPerTon: row.toneladas && params.dolarDivisaBna ? resultBeforeTax / row.toneladas / params.dolarDivisaBna : 0,
+      statementLines: [
+        {
+          label: "Ingreso gestion",
+          amount: row.ingresoGestion,
+          tone: "positive",
+          source: row.fuenteIngreso,
+          detail: `${number(row.toneladas, 2)} TN x ${money(row.precioUsdTon).replace("$", "USD ")} x ${money(row.tipoCambio)}.`,
+        },
+        {
+          label: "Costo produccion",
+          amount: -row.totalCost,
+          tone: "negative",
+          source: `${row.costFactors.length} factores`,
+          detail: "Suma de mano de obra, depreciacion, compras fabriles asignadas y consumos manuales especificos.",
+        },
+        {
+          label: "Margen productivo",
+          amount: productiveMargin,
+          tone: productiveMargin < 0 ? "negative" : "positive",
+          source: "Ingreso gestion - costo produccion",
+          detail: "Resultado luego de cubrir el costo interno de producir el servicio de fazon.",
+        },
+        {
+          label: "Comision IF",
+          amount: -row.comision,
+          tone: "negative",
+          source: "Compras COMISION_IF",
+          detail: "Factura de asesoramiento/comision IF prorrateada por valor teorico del servicio.",
+        },
+        {
+          label: "Gastos generales asignados",
+          amount: 0,
+          tone: "neutral",
+          source: "Pendiente de criterio",
+          detail: "No se asignan gastos administrativos/comerciales generales al fazon hasta definir un criterio de reparto.",
+        },
+        {
+          label: "Resultado antes de impuestos",
+          amount: resultBeforeTax,
+          tone: resultBeforeTax < 0 ? "negative" : "positive",
+          source: "Margen productivo - gastos directos",
+          detail: "Resultado de gestion del fazon antes de impuestos, sin impuesto a las ganancias.",
+        },
+      ],
+    };
+  });
+  const totalFazonStatement = fazonStatementRows.reduce((total, row) => total + row.resultBeforeTax, 0);
+  const totalFazonStatementPerTon = model.fazon.totalToneladas ? totalFazonStatement / model.fazon.totalToneladas : 0;
+  const totalFazonStatementUsdPerTon =
+    params.dolarDivisaBna && model.fazon.totalToneladas ? totalFazonStatementPerTon / params.dolarDivisaBna : 0;
   const directCostFields = [
     { label: "Mano de obra produccion", value: params.sueldosProduccion, field: "sueldosProduccion" as const },
     { label: "Resina bolsa 25kg", value: params.costoResinaBolsa25kg, field: "costoResinaBolsa25kg" as const },
@@ -3524,6 +3584,145 @@ function FazonPanel({
               <span>Lineas de envases</span>
               <strong>{number(model.fazon.totalEnvases)}</strong>
             </div>
+          </div>
+          <div className="fazon-real-cost">
+            <div className="section-head">
+              <div>
+                <p className="eyebrow">Resultado de gestion</p>
+                <h3>Resultado antes de impuestos del fazon</h3>
+                <p>
+                  Resume ingreso, costo productivo y gastos directos por linea. Cada importe tiene detalle de fuente
+                  para poder defender el calculo en la presentacion.
+                </p>
+              </div>
+              <div className="driver-summary">
+                <span>{money(totalFazonStatement)} resultado</span>
+                <span>{money(totalFazonStatementPerTon)} / TN</span>
+                <span>{money(totalFazonStatementUsdPerTon).replace("$", "USD ")} / TN</span>
+              </div>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Linea fazon</th>
+                    <th>Ingreso gestion</th>
+                    <th>Costo produccion</th>
+                    <th>Margen productivo</th>
+                    <th>Comision IF</th>
+                    <th>Gastos generales asignados</th>
+                    <th>Resultado antes impuestos</th>
+                    <th>Resultado/TN</th>
+                    <th>Resultado USD/TN</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fazonStatementRows.map((row) => (
+                    <tr key={`statement-${row.producto}`}>
+                      <td><strong>{row.producto}</strong></td>
+                      <td>{money(row.ingresoGestion)}</td>
+                      <td>{money(row.totalCost)}</td>
+                      <td className={row.productiveMargin < 0 ? "negative" : undefined}>{money(row.productiveMargin)}</td>
+                      <td>{money(row.comision)}</td>
+                      <td>{money(0)}</td>
+                      <td className={row.resultBeforeTax < 0 ? "negative" : undefined}>{money(row.resultBeforeTax)}</td>
+                      <td className={row.resultBeforeTaxPerTon < 0 ? "negative" : undefined}>{money(row.resultBeforeTaxPerTon)}</td>
+                      <td className={row.resultBeforeTaxUsdPerTon < 0 ? "negative" : undefined}>
+                        {money(row.resultBeforeTaxUsdPerTon).replace("$", "USD ")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <details className="remitos-disclosure" open>
+              <summary>
+                <span>Ver detalle del resultado por linea</span>
+                <strong>{number(fazonStatementRows.length)} lineas</strong>
+              </summary>
+              <div className="cost-breakdown-list">
+                {fazonStatementRows.map((row) => (
+                  <details className="cost-breakdown-item" key={`statement-detail-${row.producto}`}>
+                    <summary>
+                      <span>{row.producto}</span>
+                      <strong className={row.resultBeforeTax < 0 ? "negative" : undefined}>
+                        {money(row.resultBeforeTax)} antes de impuestos
+                      </strong>
+                    </summary>
+                    <div className="fazon-summary">
+                      <div>
+                        <span>Toneladas</span>
+                        <strong>{number(row.toneladas, 2)}</strong>
+                      </div>
+                      <div>
+                        <span>Resultado/TN</span>
+                        <strong className={row.resultBeforeTaxPerTon < 0 ? "negative" : undefined}>
+                          {money(row.resultBeforeTaxPerTon)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>Resultado USD/TN</span>
+                        <strong className={row.resultBeforeTaxUsdPerTon < 0 ? "negative" : undefined}>
+                          {money(row.resultBeforeTaxUsdPerTon).replace("$", "USD ")}
+                        </strong>
+                      </div>
+                    </div>
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Concepto</th>
+                            <th>Importe</th>
+                            <th>Fuente</th>
+                            <th>Detalle</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {row.statementLines.map((line) => (
+                            <tr key={`${row.producto}-${line.label}`}>
+                              <td><strong>{line.label}</strong></td>
+                              <td className={line.amount < 0 ? "negative" : undefined}>{money(line.amount)}</td>
+                              <td>{line.source}</td>
+                              <td>{line.detail}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <details className="remitos-disclosure">
+                      <summary>
+                        <span>Ver composicion del costo de produccion</span>
+                        <strong>{money(row.totalCost)}</strong>
+                      </summary>
+                      <div className="table-wrap">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Factor</th>
+                              <th>Asignado linea</th>
+                              <th>Costo/TN</th>
+                              <th>Fuente</th>
+                              <th>Criterio</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {row.costFactors.map((factor) => (
+                              <tr key={`statement-factor-${row.producto}-${factor.label}`}>
+                                <td><strong>{factor.label}</strong></td>
+                                <td>{money(factor.assignedToProduct)}</td>
+                                <td>{money(factor.costPerTon)}</td>
+                                <td>{factor.source ?? `${factor.purchases.length} compras`}</td>
+                                <td>{factor.assignmentNote}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  </details>
+                ))}
+              </div>
+            </details>
           </div>
           <div className="table-wrap">
             <table>
