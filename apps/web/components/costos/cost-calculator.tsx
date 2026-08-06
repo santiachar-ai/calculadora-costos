@@ -1065,6 +1065,14 @@ function isAccrualSensitiveType(tipo: string) {
   return ACCRUAL_SENSITIVE_PURCHASE_TYPES.includes(tipo);
 }
 
+function normalizePurchaseClassification(articulo: string, proveedor: string, classified: { tipo: string; producto: string }) {
+  if (key(articulo).includes("ANALISIS QUIMICOS") && key(proveedor).includes("SGS ARGENTINA")) {
+    return { tipo: "FABRIL_CONTROL_CALIDAD", producto: "Industrial" };
+  }
+
+  return classified;
+}
+
 function groupedPurchaseRowsFromSheet(workbook: XLSX.WorkBook, sheetName: string): RawRow[] {
   const sheet = workbook.Sheets[sheetName];
   if (!sheet) return [];
@@ -1560,7 +1568,7 @@ function buildCostModel(
     .map((row) => {
       const articulo = text(row.Articulo_ERP);
       const proveedor = text(row.Proveedor);
-      const classified = classifyPurchase(articulo, proveedor);
+      const classified = normalizePurchaseClassification(articulo, proveedor, classifyPurchase(articulo, proveedor));
       const purchase = {
         fecha: text(row.Fecha),
         comprobante: text(row.Comprobante),
