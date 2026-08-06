@@ -244,6 +244,7 @@ type CostModel = {
     logisticaOptiblueLitro: number;
     costoFabrilLitro: number;
     gasIndustrialLitro: number;
+    controlCalidadIndustrialLitro: number;
     muestrasPorLitro: number;
     precintosPorLitro: number;
     costoBotellaMuestra: number;
@@ -665,7 +666,7 @@ const MAY_2026_PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Combustibles varios", proveedor: "Casares Combustibles S.R.L", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Mercaderia en general", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Viandas", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
-  { articulo: "Analisis quimicos", proveedor: "SGS Argentina S.A.", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Control" },
+  { articulo: "Analisis quimicos", proveedor: "SGS Argentina S.A.", tipo: "FABRIL_CONTROL_CALIDAD", producto: "Industrial" },
   { articulo: "Fletes varios", proveedor: "Distribuciones Villa Sanguinetti Cuna de Campeones SA en formación", tipo: "FLETE", producto: "Industrial" },
   { articulo: "MUEBLES Y UTILES", proveedor: "Electrónica Megatone SRL", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Combustible vehiculos", proveedor: "Gastecmor S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
@@ -1658,6 +1659,10 @@ function buildCostModel(
   const gasIndustrialLitro = industrialLiters
     ? purchaseTotal("GAS", "Industrial") / industrialLiters
     : 0;
+  const controlCalidadIndustrialTotal = purchaseTotal("FABRIL_CONTROL_CALIDAD", "Industrial");
+  const controlCalidadIndustrialLitro = industrialLiters
+    ? controlCalidadIndustrialTotal / industrialLiters
+    : 0;
 
   const costoFabrilTotal =
     params.sueldosProduccion +
@@ -1666,7 +1671,7 @@ function buildCostModel(
     purchaseTotal("FABRIL_AGUA") +
     purchaseTotal("FABRIL_COMBUSTIBLE") +
     purchaseTotal("FABRIL_MANTENIMIENTO") +
-    purchaseTotal("FABRIL_CONTROL_CALIDAD") +
+    (purchaseTotal("FABRIL_CONTROL_CALIDAD") - controlCalidadIndustrialTotal) +
     purchaseTotal("FABRIL_LIMPIEZA") +
     purchaseTotal("FABRIL_INSUMOS") +
     purchaseTotal("FABRIL_SEGURIDAD") +
@@ -1846,13 +1851,13 @@ function buildCostModel(
       return mpOptiblue + params.costoEtiqueta23 / 1000 + fleteOptiblueLitro + logisticaOptiblueLitro + muestrasPorLitro + precintosPorLitro + iibb + comision;
     }
     if (producto === "INDUSTRIAL") {
-      return mpIndustrial + fleteIndustrialLitro + gasIndustrialLitro + muestrasPorLitro + iibb + comision;
+      return mpIndustrial + fleteIndustrialLitro + gasIndustrialLitro + controlCalidadIndustrialLitro + muestrasPorLitro + iibb + comision;
     }
     if (producto === "IF_FAZON_325") {
       return params.costoVariableFazonLitro + muestrasPorLitro + precintosPorLitro + iibb + comision;
     }
     if (producto === "IF_FAZON_IND") {
-      return gasIndustrialLitro + params.costoVariableFazonLitro + muestrasPorLitro + iibb + comision;
+      return gasIndustrialLitro + controlCalidadIndustrialLitro + params.costoVariableFazonLitro + muestrasPorLitro + iibb + comision;
     }
     if (producto === "OPTIPURE_GRANEL") {
       return params.costoOptipureGranelLitro + muestrasPorLitro + iibb + comision;
@@ -1994,6 +1999,7 @@ function buildCostModel(
         { label: "Materia prima", value: mpIndustrial, controllability: "media" as const },
         { label: "Flete", value: fleteIndustrialLitro, controllability: "media" as const },
         { label: "Gas", value: gasIndustrialLitro, controllability: "media" as const },
+        { label: "Control calidad SGS", value: controlCalidadIndustrialLitro, controllability: "media" as const },
         { label: "Costo fabril", value: costoFabrilLitro, controllability: "media" as const },
         ...shared,
       ];
@@ -2008,6 +2014,7 @@ function buildCostModel(
     if (row.producto === "IF_FAZON_IND") {
       return [
         { label: "Gas", value: gasIndustrialLitro, controllability: "media" as const },
+        { label: "Control calidad SGS", value: controlCalidadIndustrialLitro, controllability: "media" as const },
         { label: "Variable fazon", value: params.costoVariableFazonLitro, controllability: "media" as const },
         ...shared,
       ];
@@ -2199,6 +2206,7 @@ function buildCostModel(
       logisticaOptiblueLitro,
       costoFabrilLitro,
       gasIndustrialLitro,
+      controlCalidadIndustrialLitro,
       muestrasPorLitro,
       precintosPorLitro,
       costoBotellaMuestra,
@@ -2915,6 +2923,7 @@ export function CostCalculator() {
             <Kpi label="Logistica OptiBlue x L" value={money(model.kpis.logisticaOptiblueLitro)} />
             <Kpi label="Costo fabril x L" value={money(model.kpis.costoFabrilLitro)} />
             <Kpi label="Gas industria x L" value={money(model.kpis.gasIndustrialLitro)} />
+            <Kpi label="Control SGS ind. x L" value={money(model.kpis.controlCalidadIndustrialLitro)} />
             <Kpi label="Muestras x L" value={money(model.kpis.muestrasPorLitro)} />
             <Kpi label="Precintos x L" value={money(model.kpis.precintosPorLitro)} />
             <Kpi label="Facturacion cubierta" value={pct(model.kpis.facturacionTotal ? model.kpis.facturacionAnalizada / model.kpis.facturacionTotal : 0)} />
@@ -3250,6 +3259,8 @@ function FazonPanel({
   const gasRows = purchasesByTypes(["GAS"]);
   const maintenanceRows = purchasesByTypes(["FABRIL_MANTENIMIENTO"]);
   const qualityRows = purchasesByTypes(["FABRIL_CONTROL_CALIDAD", "INSUMO_CONTROL"]);
+  const qualityIndustrialRows = qualityRows.filter((row) => row.tipo === "FABRIL_CONTROL_CALIDAD" && row.producto === "Industrial");
+  const qualityGeneralRows = qualityRows.filter((row) => !qualityIndustrialRows.includes(row));
   const cleaningRows = purchasesByTypes(["FABRIL_LIMPIEZA"]);
   const suppliesRows = purchasesByTypes(["FABRIL_INSUMOS"]);
   const safetyRows = purchasesByTypes(["FABRIL_SEGURIDAD"]);
@@ -3263,7 +3274,8 @@ function FazonPanel({
     { label: "Combustible de planta compras", value: totalPurchases(fuelRows), purchases: fuelRows },
     { label: "Gas compras", value: totalPurchases(gasRows), purchases: gasRows },
     { label: "Mantenimiento preventivo compras", value: totalPurchases(maintenanceRows), purchases: maintenanceRows },
-    { label: "Control de calidad compras", value: totalPurchases(qualityRows), purchases: qualityRows },
+    { label: "Control calidad industrial SGS", value: totalPurchases(qualityIndustrialRows), purchases: qualityIndustrialRows },
+    { label: "Control de calidad general compras", value: totalPurchases(qualityGeneralRows), purchases: qualityGeneralRows },
     { label: "Limpieza de planta compras", value: totalPurchases(cleaningRows), purchases: cleaningRows },
     { label: "Insumos fabriles compras", value: totalPurchases(suppliesRows), purchases: suppliesRows },
     { label: "Seguridad e higiene compras", value: totalPurchases(safetyRows), purchases: safetyRows },
@@ -3281,6 +3293,11 @@ function FazonPanel({
       : 0;
   const totalProductionCostPool = costPoolRows.reduce((total, row) => total + row.value, 0);
   const netFazonRevenue = model.fazon.totalIngresoGestion - model.fazon.totalComisiones;
+  const industrialOnlyFactorLabels = ["Gas compras", "Control calidad industrial SGS"];
+  const industrialFazonLiters = model.fazon.rows.find((row) => row.producto === "IF_FAZON_IND")?.litros ?? 0;
+  const industrialOwnLiters = model.products.find((row) => row.producto === "INDUSTRIAL")?.litros ?? params.litrosIndustrial;
+  const industrialAllocationLiters = industrialOwnLiters + industrialFazonLiters;
+  const industrialFazonShare = industrialAllocationLiters ? industrialFazonLiters / industrialAllocationLiters : fazonProductionShare;
   const costQualityChecks = [
     {
       label: "Volumen fazon",
@@ -3306,7 +3323,7 @@ function FazonPanel({
   const costNatureRows = costPoolRows.map((row) => ({
     ...row,
     share: totalProductionCostPool ? row.value / totalProductionCostPool : 0,
-    assignedToFazon: row.value * fazonProductionShare,
+    assignedToFazon: row.value * (industrialOnlyFactorLabels.includes(row.label) ? industrialFazonShare : fazonProductionShare),
   }));
   const fazonRowsForAllocation = model.fazon.rows.filter((row) => row.litros || row.toneladas || row.facturacion);
   const fazonAllocationBase = fazonRowsForAllocation.reduce(
@@ -3340,16 +3357,16 @@ function FazonPanel({
       ...costNatureRows.map((factor) => ({
         ...factor,
         assignedToFazon:
-          factor.label === "Gas compras" && row.producto !== "IF_FAZON_IND"
+          industrialOnlyFactorLabels.includes(factor.label) && row.producto !== "IF_FAZON_IND"
             ? 0
             : factor.assignedToFazon,
         assignedToProduct:
-          factor.label === "Gas compras"
+          industrialOnlyFactorLabels.includes(factor.label)
             ? row.producto === "IF_FAZON_IND"
               ? factor.assignedToFazon
               : 0
             : factor.assignedToFazon * productShare,
-        assignmentNote: factor.label === "Gas compras" ? "Solo industrial" : "Por participacion en litros",
+        assignmentNote: industrialOnlyFactorLabels.includes(factor.label) ? "Solo industrial" : "Por participacion en litros",
       })),
       ...productSpecificFactors,
     ].map((factor) => ({
