@@ -3304,7 +3304,8 @@ function FazonPanel({
       ? 1
       : 0;
   const totalProductionCostPool = costPoolRows.reduce((total, row) => total + row.value, 0);
-  const netFazonRevenue = model.fazon.totalIngresoGestion - model.fazon.totalComisiones;
+  const totalFazonRevenueForResult = model.fazon.totalFacturado > 0 ? model.fazon.totalFacturado : model.fazon.totalIngresoGestion;
+  const netFazonRevenue = totalFazonRevenueForResult - model.fazon.totalComisiones;
   const industrialOnlyFactorLabels = ["Gas compras", "Control calidad industrial SGS"];
   const industrialFazonLiters = model.fazon.rows.find((row) => row.producto === "IF_FAZON_IND")?.litros ?? 0;
   const industrialOwnLiters = model.products.find((row) => row.producto === "INDUSTRIAL")?.litros ?? params.litrosIndustrial;
@@ -3395,7 +3396,9 @@ function FazonPanel({
       .filter((factor) => factor.source !== "Manual" && factor.source !== "Manual USD" && factor.source !== "Manual resina")
       .reduce((total, factor) => total + factor.assignedToProduct, 0);
     const totalCost = costFactors.reduce((total, factor) => total + factor.assignedToProduct, 0);
-    const netRevenue = row.ingresoGestion - row.comision;
+    const revenueForResult = row.facturacion > 0 ? row.facturacion : row.ingresoGestion;
+    const revenueSource = row.facturacion > 0 ? "Facturacion real prorrateada" : row.fuenteIngreso;
+    const netRevenue = revenueForResult - row.comision;
     const margin = netRevenue - totalCost;
     return {
       ...row,
@@ -3405,6 +3408,8 @@ function FazonPanel({
       depreciationCost,
       purchasesCost,
       totalCost,
+      revenueForResult,
+      revenueSource,
       costPerTon: row.toneladas ? totalCost / row.toneladas : 0,
       netRevenue,
       margin,
@@ -3434,7 +3439,9 @@ function FazonPanel({
     { label: "Agua desmin. estimada", format: "number", value: (row: (typeof realCostByFazonProduct)[number]) => row.waterLiters325 },
     { label: "Bolsas resina 25kg", format: "number", value: (row: (typeof realCostByFazonProduct)[number]) => row.resinBags325 },
     { label: "Precio USD/TN", format: "usd", value: (row: (typeof realCostByFazonProduct)[number]) => row.precioUsdTon },
-    { label: "Ingreso gestion", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.ingresoGestion },
+    { label: "Ingreso esperado", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.ingresoGestion },
+    { label: "Facturado real asignado", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.facturacion },
+    { label: "Ingreso usado p/margen", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.revenueForResult },
     { label: "Comision IF", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.comision },
     { label: "Mano de obra", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.laborCost },
     { label: "Depreciacion", format: "money", value: (row: (typeof realCostByFazonProduct)[number]) => row.depreciationCost },
@@ -3468,7 +3475,7 @@ function FazonPanel({
         : fazonIndustrialComparison
       : undefined;
   const fazonStatementRows = realCostByFazonProduct.map((row) => {
-    const productiveMargin = row.ingresoGestion - row.totalCost;
+    const productiveMargin = row.revenueForResult - row.totalCost;
     const resultBeforeTax = productiveMargin - row.comision;
 
     return {
@@ -3479,11 +3486,14 @@ function FazonPanel({
       resultBeforeTaxUsdPerTon: row.toneladas && params.dolarDivisaBna ? resultBeforeTax / row.toneladas / params.dolarDivisaBna : 0,
       statementLines: [
         {
-          label: "Ingreso gestion",
-          amount: row.ingresoGestion,
+          label: "Ingreso usado para margen",
+          amount: row.revenueForResult,
           tone: "positive",
-          source: row.fuenteIngreso,
-          detail: `${number(row.toneladas, 2)} TN x ${money(row.precioUsdTon).replace("$", "USD ")} x ${money(row.tipoCambio)}.`,
+          source: row.revenueSource,
+          detail:
+            row.facturacion > 0
+              ? "Se usa la factura real del servicio, prorrateada entre lineas por valor teorico."
+              : `${number(row.toneladas, 2)} TN x ${money(row.precioUsdTon).replace("$", "USD ")} x ${money(row.tipoCambio)}.`,
         },
         {
           label: "Costo produccion",
@@ -3635,7 +3645,7 @@ function FazonPanel({
                 <thead>
                   <tr>
                     <th>Linea fazon</th>
-                    <th>Ingreso gestion</th>
+                    <th>Ingreso usado</th>
                     <th>Costo produccion</th>
                     <th>Margen productivo</th>
                     <th>Comision IF</th>
@@ -3649,7 +3659,7 @@ function FazonPanel({
                   {fazonStatementRows.map((row) => (
                     <tr key={`statement-${row.producto}`}>
                       <td><strong>{row.producto}</strong></td>
-                      <td>{money(row.ingresoGestion)}</td>
+                      <td>{money(row.revenueForResult)}</td>
                       <td>{money(row.totalCost)}</td>
                       <td className={row.productiveMargin < 0 ? "negative" : undefined}>{money(row.productiveMargin)}</td>
                       <td>{money(row.comision)}</td>
@@ -3977,8 +3987,16 @@ function FazonPanel({
                         <strong>{money(row.precioUsdTon).replace("$", "USD ")}/TN</strong>
                       </div>
                       <div>
-                        <span>Ingreso gestion</span>
+                        <span>Ingreso esperado</span>
                         <strong>{money(row.ingresoGestion)}</strong>
+                      </div>
+                      <div>
+                        <span>Facturado real</span>
+                        <strong>{money(row.facturacion)}</strong>
+                      </div>
+                      <div>
+                        <span>Ingreso usado</span>
+                        <strong>{money(row.revenueForResult)}</strong>
                       </div>
                       <div>
                         <span>Ingreso neto</span>
