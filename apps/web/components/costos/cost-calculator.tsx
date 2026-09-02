@@ -660,7 +660,7 @@ const MAY_2026_PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Ajuste por redondeo", proveedor: "Compañía de Negocios Agropecuarios CNA S.A.", tipo: "NO_COSTO", producto: "Empresa" },
   { articulo: "Diferencia de Cambio", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
   { articulo: "Solución de urea al 32.5% - LTS", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "MP", producto: "OptiBlue" },
-  { articulo: "ASESORAMIENTO COMERCIAL", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "COMISION_IF", producto: "IF Fazon" },
+  { articulo: "ASESORAMIENTO COMERCIAL", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "NO_COSTO", producto: "Empresa" },
   { articulo: "Construcción nave industrial 20x48", proveedor: "Construcciones Civil-Mecánica Arrecifes SRL", tipo: "INVERSION", producto: "Planta" },
   { articulo: "Combustibles varios", proveedor: "Operadora de Estaciones de Servicio S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Combustibles varios", proveedor: "Casares Combustibles S.R.L", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
@@ -1066,6 +1066,10 @@ function isAccrualSensitiveType(tipo: string) {
 }
 
 function normalizePurchaseClassification(articulo: string, proveedor: string, classified: { tipo: string; producto: string }) {
+  if (key(articulo).includes("ASESORAMIENTO COMERCIAL") && key(proveedor).includes("IF INGENIERIA")) {
+    return { tipo: "NO_COSTO", producto: "Empresa" };
+  }
+
   if (key(articulo).includes("ANALISIS QUIMICOS") && key(proveedor).includes("SGS ARGENTINA")) {
     return { tipo: "FABRIL_CONTROL_CALIDAD", producto: "Industrial" };
   }
