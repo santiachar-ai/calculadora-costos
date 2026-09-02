@@ -219,6 +219,7 @@ type CostModel = {
     totalIngresoGestion: number;
     totalDiferencia: number;
     totalComisiones: number;
+    comisiones: PurchaseRow[];
     totalEnvases: number;
   };
   costDrivers: ProductCostDrivers[];
@@ -660,7 +661,7 @@ const MAY_2026_PURCHASE_RULES: PurchaseRule[] = [
   { articulo: "Ajuste por redondeo", proveedor: "Compañía de Negocios Agropecuarios CNA S.A.", tipo: "NO_COSTO", producto: "Empresa" },
   { articulo: "Diferencia de Cambio", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "RESULTADO_FINANCIERO", producto: "Financiero" },
   { articulo: "Solución de urea al 32.5% - LTS", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "MP", producto: "OptiBlue" },
-  { articulo: "ASESORAMIENTO COMERCIAL", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "NO_COSTO", producto: "Empresa" },
+  { articulo: "ASESORAMIENTO COMERCIAL", proveedor: "IF Ingeniería en Fertilizantes S.A.", tipo: "COMISION_IF", producto: "IF Fazon" },
   { articulo: "Construcción nave industrial 20x48", proveedor: "Construcciones Civil-Mecánica Arrecifes SRL", tipo: "INVERSION", producto: "Planta" },
   { articulo: "Combustibles varios", proveedor: "Operadora de Estaciones de Servicio S.A.", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
   { articulo: "Combustibles varios", proveedor: "Casares Combustibles S.R.L", tipo: "GASTO_ADMINISTRATIVO", producto: "Administracion" },
@@ -1066,10 +1067,6 @@ function isAccrualSensitiveType(tipo: string) {
 }
 
 function normalizePurchaseClassification(articulo: string, proveedor: string, classified: { tipo: string; producto: string }) {
-  if (key(articulo).includes("ASESORAMIENTO COMERCIAL") && key(proveedor).includes("IF INGENIERIA")) {
-    return { tipo: "NO_COSTO", producto: "Empresa" };
-  }
-
   if (key(articulo).includes("ANALISIS QUIMICOS") && key(proveedor).includes("SGS ARGENTINA")) {
     return { tipo: "FABRIL_CONTROL_CALIDAD", producto: "Industrial" };
   }
@@ -1777,10 +1774,12 @@ function buildCostModel(
         isUnifiedFazonServiceArticle(row.articulo),
       (row) => row.total,
     );
-  const comisionIfTotal =
-    purchaseTotal("COMISION_IF", "IF Fazon") +
-    purchaseTotal("COMPENSACION_IF", "IF Fazon") +
-    purchaseTotal("COMPENSACION_IF", "IF Compensacion");
+  const comisionIfRows = costPurchases.filter(
+    (row) =>
+      (row.tipo === "COMISION_IF" && row.producto === "IF Fazon") ||
+      (row.tipo === "COMPENSACION_IF" && (row.producto === "IF Fazon" || row.producto === "IF Compensacion")),
+  );
+  const comisionIfTotal = comisionIfRows.reduce((total, row) => total + row.total, 0);
   const litrosFazon325 = effectiveParams.litrosFazon325;
   const toneladasFazon325 = hasRemitosFazon325
     ? remitosSummary.toneladas325
@@ -1846,6 +1845,7 @@ function buildCostModel(
     totalIngresoGestion: fazonTotalIngresoGestion,
     totalDiferencia: fazonTotalFacturado - fazonTotalTeorico,
     totalComisiones: comisionIfTotal,
+    comisiones: comisionIfRows,
     totalEnvases: remitosSummary.totalEnvases,
   };
 
@@ -3624,6 +3624,48 @@ function FazonPanel({
               <strong>{number(model.fazon.totalEnvases)}</strong>
             </div>
           </div>
+          <details className="remitos-disclosure">
+            <summary>
+              <span>Comisiones IF detectadas</span>
+              <strong>{number(model.fazon.comisiones.length)} compras - {money(model.fazon.totalComisiones)}</strong>
+            </summary>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Comprobante</th>
+                    <th>Proveedor</th>
+                    <th>Articulo</th>
+                    <th>Tipo</th>
+                    <th>Producto</th>
+                    <th>Periodo costo</th>
+                    <th>Importe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {model.fazon.comisiones.length ? (
+                    model.fazon.comisiones.map((row) => (
+                      <tr key={`if-commission-${purchaseAccrualId(row)}`}>
+                        <td>{row.fecha || "-"}</td>
+                        <td>{row.comprobante || "-"}</td>
+                        <td>{row.proveedor || "-"}</td>
+                        <td><strong>{row.articulo || "-"}</strong></td>
+                        <td>{row.tipo}</td>
+                        <td>{row.producto}</td>
+                        <td>{row.periodoCosto || "-"}</td>
+                        <td>{money(row.total)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8}>No hay compras clasificadas como comision o compensacion IF para este periodo.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </details>
           <div className="fazon-real-cost">
             <div className="section-head">
               <div>
