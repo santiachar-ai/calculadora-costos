@@ -3503,8 +3503,8 @@ function FazonPanel({
           label: "Comision IF",
           amount: -row.comision,
           tone: "negative",
-          source: "Compras COMISION_IF",
-          detail: "Factura de asesoramiento/comision IF prorrateada por valor teorico del servicio.",
+          source: "Compras COMISION_IF / COMPENSACION_IF",
+          detail: "Comisiones o compensaciones IF prorrateadas por valor teorico del servicio. El articulo Asesoramiento comercial queda fuera del costo.",
         },
         {
           label: "Gastos generales asignados",
