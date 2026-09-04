@@ -26,6 +26,11 @@ const navItems: NavItem[] = [
     subtitle: "Agenda diaria y despacho",
   },
   {
+    title: "Personal",
+    href: "/personal/horas",
+    subtitle: "Horas, turnos y asistencia",
+  },
+  {
     title: "Stock y Depositos",
     href: "/stock",
     subtitle: "Depositos, remitos y movimientos",
