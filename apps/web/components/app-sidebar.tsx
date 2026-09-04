@@ -21,6 +21,11 @@ const navItems: NavItem[] = [
     subtitle: "Clientes, pedidos y facturacion",
   },
   {
+    title: "Pedidos",
+    href: "/pedidos",
+    subtitle: "Agenda diaria y despacho",
+  },
+  {
     title: "Stock y Depositos",
     href: "/stock",
     subtitle: "Depositos, remitos y movimientos",
