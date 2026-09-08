@@ -8,7 +8,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Order, OrderItem, OrderStatus, OrderUnit, OrderFormState } from "./types";
 
-import { CloudAccess } from "./cloud-access";
+
 
 import { fetchOrders, persistOrder } from "../../lib/supabase/orders";
 
@@ -190,7 +190,7 @@ function orderUnitsSummary(order: Order) {
 
 
 
-export function OrdersClient() { return <CloudAccess><OrdersWorkspace /></CloudAccess>; }
+export function OrdersClient() { return <OrdersWorkspace />; }
 
 
 

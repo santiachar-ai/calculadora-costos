@@ -2,7 +2,7 @@
 
 ## Estado
 
-La integración usa el repositorio `calculadora-costos`, que corresponde a la app publicada en Vercel. La organización de Supabase es `ERP Propio` (Free). El proyecto `erp-propio` (ref. `yklyjamiyjvydotvqjeg`) está creado. La migración se aplicó desde el SQL Editor con autorización del usuario. El primer usuario del ERP fue habilitado y verificado con autorización del usuario. Las variables públicas de Supabase están configuradas en el entorno Production de Vercel. Pendiente: publicar el código y verificar el acceso en producción.
+La integración usa el repositorio `calculadora-costos`, que corresponde a la app publicada en Vercel. La organización de Supabase es `ERP Propio` (Free). El proyecto `erp-propio` (ref. `yklyjamiyjvydotvqjeg`) está creado. La migración se aplicó desde el SQL Editor con autorización del usuario. El primer usuario del ERP fue habilitado y verificado con autorización del usuario. Las variables públicas de Supabase están configuradas en el entorno Production de Vercel. El módulo de pedidos está publicado en Vercel.
 
 ## Configuración
 
@@ -45,3 +45,9 @@ npm run build --workspace web
 ```
 
 Las pruebas ejecutan la migración real sobre PostgreSQL embebido (PGlite), con roles y auth.uid simulados. Cubren entregas completas/parciales, confirmación, reintentos, edición, cancelación, membresías, RLS y rechazo de modificaciones directas. La conexión real y Supabase Auth requieren una prueba adicional después de crear/configurar el proyecto.
+
+## Acceso general al ERP
+
+Todos los módulos requieren sesión de Supabase y membresía habilitada. El proxy valida el usuario con getUser antes de servir rutas y consultas RSC. /login es público y no muestra la navegación del ERP. Las sesiones usan cookies compartidas entre servidor y navegador; las sesiones anteriores basadas en localStorage requieren iniciar sesión nuevamente. Cerrar sesión está disponible en todos los módulos.
+
+Verificación de rutas anónimas: con el servidor en puerto 3100, ejecutar node apps/web/tests/auth-routes.test.mjs. AUTH_TEST_BASE_URL permite verificar producción. La prueba de ingreso con contraseña y cierre de sesión requiere la cuenta del usuario.
