@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Membership } from "./permissions";
+import { moduleForPath } from "../lib/permission-map";
 
 type NavItem = {
   title: string;
@@ -27,8 +29,8 @@ const navItems: NavItem[] = [
   },
   {
     title: "Personal",
-    href: "/personal/horas",
-    subtitle: "Horas, turnos y asistencia",
+    href: "/personal",
+    subtitle: "Legajos, horas y asistencia",
   },
   {
     title: "Stock y Depositos",
@@ -66,13 +68,13 @@ const navItems: NavItem[] = [
     subtitle: "Clientes, productos y definiciones",
   },
   {
-    title: "Administracion",
+    title: "Configuración del sistema",
     href: "/administracion",
     subtitle: "Usuarios y configuracion",
   },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ member }: { member: Membership }) {
   const pathname = usePathname();
 
   return (
@@ -86,7 +88,7 @@ export function AppSidebar() {
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map((item) => {
+        {navItems.filter(item => member.is_admin || member.permissions.includes(`${moduleForPath(item.href)}:view`)).map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/" && pathname.startsWith(item.href));

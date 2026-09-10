@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { moduleForPath } from "./lib/permission-map";
 
 export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/login") return NextResponse.next();
@@ -31,8 +32,13 @@ export async function proxy(request: NextRequest) {
     const { data: { user }, error } = await client.auth.getUser();
     if (error || !user) return deny();
     const { data: member, error: memberError } = await client.from("erp_members")
-      .select("enabled").eq("user_id", user.id).eq("enabled", true).maybeSingle();
+      .select("enabled,is_admin,permissions").eq("user_id", user.id).eq("enabled", true).maybeSingle();
     if (memberError || !member) return deny();
+    if (request.nextUrl.pathname !== "/sin-acceso" && !member.is_admin && !member.permissions?.includes(`${moduleForPath(request.nextUrl.pathname)}:view`)) {
+      const destination=request.nextUrl.clone(); destination.pathname="/sin-acceso";destination.search="";
+      const rejected=NextResponse.redirect(destination);response.cookies.getAll().forEach(c=>rejected.cookies.set(c));
+      rejected.headers.set("Cache-Control","private, no-store");return rejected;
+    }
   } catch {
     return deny();
   }

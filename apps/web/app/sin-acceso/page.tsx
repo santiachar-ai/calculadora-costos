@@ -1,0 +1,1 @@
+export default function DeniedPage(){return <section className="hero-card"><h1>Acceso restringido</h1><p>No tenés permiso para consultar este módulo. Elegí un módulo habilitado en el menú o consultá al administrador.</p></section>;}

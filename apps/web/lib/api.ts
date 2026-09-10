@@ -1,4 +1,5 @@
 import "server-only";
+import { requirePermission } from "./supabase/server-access";
 
 import { DashboardData } from "./types";
 
@@ -16,6 +17,8 @@ const emptyDashboardData: DashboardData = {
 };
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const module = /customers|products|warehouses/.test(path) ? "maestros" : "stock";
+  await requirePermission(module, "view");
   const response = await fetch(`${defaultApiBaseUrl}${path}`, {
     ...init,
     cache: "no-store",

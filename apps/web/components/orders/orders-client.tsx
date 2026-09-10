@@ -1,4 +1,5 @@
 "use client";
+import { useAccess } from "../permissions";
 
 
 
@@ -195,6 +196,7 @@ export function OrdersClient() { return <OrdersWorkspace />; }
 
 
 function OrdersWorkspace() {
+ const canManage = useAccess("pedidos");
 
   const [orders, setOrders] = useState<Order[]>([]);
 
@@ -541,7 +543,7 @@ function OrdersWorkspace() {
 
       <section className="orders-layout">
 
-        <form className="form-card orders-form" onSubmit={saveOrder}><fieldset disabled={busy || !loaded} style={{border:0,padding:0,minWidth:0}}>
+        <form className="form-card orders-form" onSubmit={saveOrder}><fieldset disabled={busy || !loaded || !canManage} style={{border:0,padding:0,minWidth:0}}>
 
           <div className="section-head">
 
@@ -1075,13 +1077,13 @@ function OrdersWorkspace() {
 
                   <div className="order-card-actions">
 
-                    <button className="button-secondary" type="button" disabled={busy || ["CANCELADO","DESPACHADO"].includes(order.estado)} onClick={() => editOrder(order)}>
+                    <button className="button-secondary" type="button" disabled={busy || !canManage || ["CANCELADO","DESPACHADO"].includes(order.estado)} onClick={() => editOrder(order)}>
 
                       Editar
 
                     </button>
 
-                    <select aria-label="Estado del pedido" disabled={busy || ["CANCELADO","DESPACHADO"].includes(order.estado)} value={order.estado} onChange={(event) => changeStatus(order.id, event.target.value as OrderStatus)}>
+                    <select aria-label="Estado del pedido" disabled={busy || !canManage || ["CANCELADO","DESPACHADO"].includes(order.estado)} value={order.estado} onChange={(event) => changeStatus(order.id, event.target.value as OrderStatus)}>
 
                       {statusOptions.map((option) => (
 

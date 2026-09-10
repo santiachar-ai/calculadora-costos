@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 const base = process.env.AUTH_TEST_BASE_URL || "http://localhost:3100";
-const routes = ["/", "/pedidos", "/stock", "/ventas", "/compras", "/produccion", "/tesoreria", "/contabilidad", "/reportes", "/reportes/costos", "/maestros", "/administracion", "/personal/horas"];
+const routes = ["/", "/pedidos", "/stock", "/ventas", "/compras", "/produccion", "/tesoreria", "/contabilidad", "/reportes", "/reportes/costos", "/maestros", "/administracion", "/personal", "/personal/horas", "/sin-acceso"];
 for (const path of routes) {
   const response = await fetch(new URL(path, base), { redirect: "manual" });
   assert.equal(response.status, 307, `${path} must reject anonymous access`);

@@ -1,4 +1,5 @@
 "use server";
+import { requirePermission } from "./supabase/server-access";
 
 import { revalidatePath } from "next/cache";
 
@@ -9,6 +10,8 @@ const defaultApiBaseUrl =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001/api";
 
 async function apiMutation<T>(path: string, init?: RequestInit): Promise<T> {
+  const module = /customers|products|warehouses/.test(path) ? "maestros" : "stock";
+  await requirePermission(module, init?.method && init.method !== "GET" ? "manage" : "view");
   const response = await fetch(`${defaultApiBaseUrl}${path}`, {
     ...init,
     headers: {
