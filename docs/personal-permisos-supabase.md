@@ -44,7 +44,15 @@ Los remitos de Pedidos siguen siendo internos y sin conexión a stock, como ante
 - Los accesos, legajos y pedidos viven en la misma base y se comparten entre PC.
   La calculadora y los prototipos mantienen su almacenamiento anterior.
 
-## Activación pendiente en la instalación publicada
+## Activación de la instalación publicada
+
+La migración ya está aplicada en `erp-propio`. La verificación del 11/09/2026
+confirmó la cuenta `santi.achar@gmail.com` habilitada y administradora, las cinco
+políticas de las tablas afectadas y las cinco funciones públicas de acceso.
+El código se incorporó a `main` para su despliegue automático en Vercel.
+**No volver a ejecutar la migración en esta base.**
+
+Secuencia de instalación para otras bases:
 
 1. Revisar y aplicar en el SQL Editor del proyecto correcto
    `supabase/migrations/202609100001_personnel_access.sql` **una sola vez**.
@@ -57,9 +65,8 @@ Los remitos de Pedidos siguen siendo internos y sin conexión a stock, como ante
 3. Iniciar sesión con la cuenta y contraseña actuales. Verificar Personal,
    Configuración, Pedidos y la consulta desde una segunda PC.
 
-La aplicación de SQL y el despliegue de producción no se realizaron durante la
-preparación de esta rama. La revisión automática bloqueó abrir el panel privado
-de Supabase hasta contar con autorización explícita del usuario.
+La aplicación se hizo con autorización explícita del usuario, quien confirmó
+la advertencia del SQL Editor. No se cambiaron contraseñas ni datos de pedidos.
 
 ## Validación local
 
@@ -78,4 +85,4 @@ y regresión de entregas completas/parciales y cancelaciones.
 
 Con la web en puerto 3100, `node apps/web/tests/auth-routes.test.mjs` comprueba
 que las rutas rechacen sesiones ausentes o inválidas. La prueba con la cuenta
-real queda pendiente de aplicar la migración y desplegar.
+real requiere iniciar sesión con las credenciales existentes del usuario.
