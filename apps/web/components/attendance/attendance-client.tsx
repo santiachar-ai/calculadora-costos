@@ -60,9 +60,11 @@ function workedMinutes(punches: string[]) {
 }
 
 function isAssignedSaturday(employee: string, date: Date) {
-  if (!saturdayGroupA.has(normalize(employee)) || date.getDay() !== 6) return false;
+  if (date.getDay() !== 6) return false;
   const elapsedDays = Math.round((date.getTime() - saturdayAnchor.getTime()) / 86_400_000);
-  return elapsedDays >= 0 && elapsedDays % 14 === 0;
+  if (elapsedDays < 0 || elapsedDays % 7 !== 0) return false;
+  const groupAWorks = elapsedDays % 14 === 0;
+  return saturdayGroupA.has(normalize(employee)) ? groupAWorks : !groupAWorks;
 }
 
 function importedRows(matrix: unknown[][]): Row[] {
@@ -167,9 +169,12 @@ export function AttendanceClient() {
 }
 
 function Rotation() {
-  const employees = ["Oscar", "Fernando", "Axel", "Franco"];
+  const groups = [
+    { employees: "Oscar, Fernando, Axel y Franco", group: "Grupo A", worksFirst: true },
+    { employees: "Resto de los empleados", group: "Grupo B", worksFirst: false },
+  ];
   const saturdays = [{ label: "Sáb 1", works: true }, { label: "Sáb 8", works: false }, { label: "Sáb 15", works: true }, { label: "Sáb 22", works: false }, { label: "Sáb 29", works: true }];
-  return <section className="table-card rotation-card"><div className="section-head"><div><h2>Rotación de agosto 2026</h2><p>Grupo confirmado desde el primer sábado del mes. La rotación continúa cada 14 días.</p></div></div><div className="rotation-table"><div className="rotation-header">Empleado</div>{saturdays.map((day) => <div className="rotation-header" key={day.label}>{day.label}</div>)}{employees.map((employee) => <div className="rotation-row" key={employee}><div><strong>{employee}</strong><small>Grupo A</small></div>{saturdays.map((day) => <span className={day.works ? "works" : "off"} key={day.label}>{day.works ? "Trabaja 4 h" : "Libre"}</span>)}</div>)}</div><p className="attendance-rotation-note">Durante las semanas en que este grupo trabaja el sábado, corresponde una hora menos de lunes a viernes. El horario exacto de esos días todavía debe configurarse.</p></section>;
+  return <section className="table-card rotation-card"><div className="section-head"><div><h2>Rotación de agosto 2026</h2><p>Los dos grupos se alternan todos los sábados y cada empleado trabaja sábado por medio.</p></div></div><div className="rotation-table"><div className="rotation-header">Grupo</div>{saturdays.map((day) => <div className="rotation-header" key={day.label}>{day.label}</div>)}{groups.map((item) => <div className="rotation-row" key={item.group}><div><strong>{item.employees}</strong><small>{item.group}</small></div>{saturdays.map((day) => { const works = day.works === item.worksFirst; return <span className={works ? "works" : "off"} key={day.label}>{works ? "Trabaja 4 h" : "Libre"}</span>; })}</div>)}</div><p className="attendance-rotation-note">Durante la semana en que cada grupo trabaja el sábado, corresponde una hora menos de lunes a viernes. El horario exacto de esos días todavía debe configurarse.</p></section>;
 }
 
 function Rules() {
