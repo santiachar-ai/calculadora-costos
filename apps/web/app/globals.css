@@ -25,6 +25,11 @@
 @media(max-width:1000px){.attendance-kpis{grid-template-columns:1fr 1fr}.attendance-heading{align-items:flex-start;flex-direction:column}.rules-grid{grid-template-columns:1fr}.rotation-table{grid-template-columns:160px repeat(6,100px)}}
 @media(max-width:700px){.attendance-actions{width:100%;flex-wrap:wrap}.attendance-period{align-items:flex-start;gap:16px;flex-direction:column}.attendance-kpis{display:flex;overflow:auto}.attendance-kpis article{min-width:210px}.attendance-tabs{overflow:auto}.attendance-tabs button{white-space:nowrap}.attendance-table-card .section-head{align-items:flex-start}.attendance-filters{width:100%;flex-direction:column}.attendance-filters input,.attendance-filters select{width:100%}}
 
+.attendance-file{display:none}
+.biotime-state.manual>i{background:#d58b26;box-shadow:0 0 0 4px #fff0d9}
+.rotation-table{grid-template-columns:180px repeat(5,minmax(120px,1fr))}
+.attendance-rotation-note{margin:0;padding:0 18px 18px;color:var(--muted)}
+
 * {
   box-sizing: border-box;
 }
