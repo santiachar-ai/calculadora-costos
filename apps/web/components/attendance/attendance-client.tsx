@@ -67,6 +67,15 @@ function isAssignedSaturday(employee: string, date: Date) {
   return saturdayGroupA.has(normalize(employee)) ? groupAWorks : !groupAWorks;
 }
 
+function weekdayTarget(employee: string, date: Date) {
+  const weekday = date.getDay();
+  if (weekday < 1 || weekday > 5) return null;
+  if (weekday === 5) return { minutes: 540, worksSaturday: isAssignedSaturday(employee, new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)) };
+  const saturday = new Date(date.getFullYear(), date.getMonth(), date.getDate() + (6 - weekday));
+  const worksSaturday = isAssignedSaturday(employee, saturday);
+  return { minutes: worksSaturday ? 540 : 600, worksSaturday };
+}
+
 function importedRows(matrix: unknown[][]): Row[] {
   const headerIndex = matrix.findIndex((row) => row.some((cell) => String(cell).trim() === "Employee ID") && row.some((cell) => String(cell).trim() === "Date"));
   if (headerIndex < 0) throw new Error("No se encontraron las columnas de transacciones de BioTime.");
@@ -92,16 +101,18 @@ function importedRows(matrix: unknown[][]): Row[] {
     const worked = complete ? workedMinutes(punches) : null;
     const isSaturday = group.date.getDay() === 6;
     const assigned = isAssignedSaturday(group.employeeId, group.date);
-    const regular = worked === null || !isSaturday ? 0 : assigned ? Math.min(worked, 240) : 0;
-    const overtime = worked === null || !isSaturday ? 0 : assigned ? Math.max(0, worked - 240) : worked;
+    const weekdaySchedule = weekdayTarget(group.employeeId, group.date);
+    const targetMinutes = isSaturday ? assigned ? 240 : 0 : weekdaySchedule?.minutes ?? 0;
+    const regular = worked === null ? 0 : weekdaySchedule || isSaturday ? Math.min(worked, targetMinutes) : 0;
+    const overtime = worked === null ? 0 : weekdaySchedule || isSaturday ? Math.max(0, worked - targetMinutes) : 0;
     const displayDate = new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(group.date);
     return {
       id: index + 1, employee: group.employee, area: group.area, date: displayDate,
       day: new Intl.DateTimeFormat("es-AR", { weekday: "long" }).format(group.date), punches, worked, regular, overtime,
-      shift: isSaturday ? assigned ? "Sábado alterno asignado" : "Sábado libre" : "Turno pendiente de configurar",
-      schedule: isSaturday ? assigned ? "Primeras 4 h normales" : "No correspondía" : "Sin horario asignado",
-      status: !complete ? "Incompleto" : isSaturday ? "Correcto" : "Revisar",
-      note: !complete ? "Cantidad impar de marcaciones" : isSaturday ? assigned ? "El excedente de 4 horas se computa como extra" : "Toda la jornada se computa como extra" : "Falta definir el turno de lunes a viernes",
+      shift: isSaturday ? assigned ? "Sábado alterno asignado" : "Sábado libre" : weekdaySchedule ? weekdaySchedule.worksSaturday ? "Semana con sábado" : "Semana sin sábado" : "Día no configurado",
+      schedule: isSaturday ? assigned ? "Primeras 4 h normales" : "No correspondía" : weekdaySchedule ? `${weekdaySchedule.minutes / 60} h normales` : "Sin horario asignado",
+      status: !complete ? "Incompleto" : weekdaySchedule || isSaturday ? "Correcto" : "Revisar",
+      note: !complete ? "Cantidad impar de marcaciones" : isSaturday ? assigned ? "El excedente de 4 horas se computa como extra" : "Toda la jornada se computa como extra" : weekdaySchedule ? `El excedente de ${weekdaySchedule.minutes / 60} horas se computa como extra` : "La jornada requiere revisión manual",
     } satisfies Row;
   });
 }
@@ -174,9 +185,9 @@ function Rotation() {
     { employees: "Resto de los empleados", group: "Grupo B", worksFirst: false },
   ];
   const saturdays = [{ label: "Sáb 1", works: true }, { label: "Sáb 8", works: false }, { label: "Sáb 15", works: true }, { label: "Sáb 22", works: false }, { label: "Sáb 29", works: true }];
-  return <section className="table-card rotation-card"><div className="section-head"><div><h2>Rotación de agosto 2026</h2><p>Los dos grupos se alternan todos los sábados y cada empleado trabaja sábado por medio.</p></div></div><div className="rotation-table"><div className="rotation-header">Grupo</div>{saturdays.map((day) => <div className="rotation-header" key={day.label}>{day.label}</div>)}{groups.map((item) => <div className="rotation-row" key={item.group}><div><strong>{item.employees}</strong><small>{item.group}</small></div>{saturdays.map((day) => { const works = day.works === item.worksFirst; return <span className={works ? "works" : "off"} key={day.label}>{works ? "Trabaja 4 h" : "Libre"}</span>; })}</div>)}</div><p className="attendance-rotation-note">Durante la semana en que cada grupo trabaja el sábado, corresponde una hora menos de lunes a viernes. El horario exacto de esos días todavía debe configurarse.</p></section>;
+  return <section className="table-card rotation-card"><div className="section-head"><div><h2>Rotación de agosto 2026</h2><p>Los dos grupos se alternan todos los sábados y cada empleado trabaja sábado por medio.</p></div></div><div className="rotation-table"><div className="rotation-header">Grupo</div>{saturdays.map((day) => <div className="rotation-header" key={day.label}>{day.label}</div>)}{groups.map((item) => <div className="rotation-row" key={item.group}><div><strong>{item.employees}</strong><small>{item.group}</small></div>{saturdays.map((day) => { const works = day.works === item.worksFirst; return <span className={works ? "works" : "off"} key={day.label}>{works ? "Trabaja 4 h" : "Libre"}</span>; })}</div>)}</div><p className="attendance-rotation-note">Lunes a jueves: 9 h para el grupo que trabaja ese sábado y 10 h para el grupo que descansa. Los viernes siempre corresponden 9 h.</p></section>;
 }
 
 function Rules() {
-  return <section className="rules-grid"><article className="table-card"><div className="section-head"><div><h2>Reglas activas</h2><p>Orden aplicado a cada jornada importada.</p></div></div><ol className="attendance-rules"><li><b>1</b><div><strong>Asignar el turno mas cercano</strong><p>Compara la entrada con los turnos vigentes del empleado, con tolerancia de dos horas.</p></div></li><li><b>2</b><div><strong>Semana con sabado</strong><p>Reduce una hora de lunes a viernes para el grupo que trabaja ese sabado.</p></div></li><li><b>3</b><div><strong>Sabado asignado</strong><p>Las primeras cuatro horas son normales y todo excedente es extra.</p></div></li><li><b>4</b><div><strong>Sabado libre trabajado</strong><p>La jornada completa se computa como hora extra.</p></div></li></ol></article><aside className="attendance-audit"><span>Control auditable</span><h2>Ninguna duda se oculta</h2><p>Se conservan las marcas originales, el turno elegido y la regla aplicada. Las jornadas incompletas o ambiguas requieren revision.</p></aside></section>;
+  return <section className="rules-grid"><article className="table-card"><div className="section-head"><div><h2>Reglas activas</h2><p>Orden aplicado a cada jornada importada.</p></div></div><ol className="attendance-rules"><li><b>1</b><div><strong>Lunes a jueves con sábado</strong><p>El grupo que trabaja el sábado de esa semana tiene 9 horas normales por día.</p></div></li><li><b>2</b><div><strong>Lunes a jueves sin sábado</strong><p>El grupo que tiene el sábado libre tiene 10 horas normales por día.</p></div></li><li><b>3</b><div><strong>Viernes</strong><p>Todos los empleados tienen siempre 9 horas normales.</p></div></li><li><b>4</b><div><strong>Sábado asignado</strong><p>Las primeras cuatro horas son normales y todo excedente es extra.</p></div></li><li><b>5</b><div><strong>Sábado libre trabajado</strong><p>La jornada completa se computa como hora extra.</p></div></li></ol></article><aside className="attendance-audit"><span>Control auditable</span><h2>Ninguna duda se oculta</h2><p>Se conservan las marcas originales, el turno elegido y la regla aplicada. Las jornadas incompletas o ambiguas requieren revisión.</p></aside></section>;
 }
